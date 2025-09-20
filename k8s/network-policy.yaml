@@ -1,0 +1,62 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: modular-chatbot-network-policy
+  namespace: modular-chatbot
+  labels:
+    app: modular-chatbot
+spec:
+  podSelector:
+    matchLabels:
+      app: modular-chatbot
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow ingress from ingress controller
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 80
+    - protocol: TCP
+      port: 8000
+  # Allow internal communication between components
+  - from:
+    - podSelector:
+        matchLabels:
+          app: modular-chatbot
+    ports:
+    - protocol: TCP
+      port: 6379  # Redis
+    - protocol: TCP
+      port: 8000  # Backend
+    - protocol: TCP
+      port: 80    # Frontend
+  egress:
+  # Allow DNS resolution
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  # Allow HTTPS for external API calls (OpenAI, InfinitePay)
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443
+  # Allow internal communication
+  - to:
+    - podSelector:
+        matchLabels:
+          app: modular-chatbot
+    ports:
+    - protocol: TCP
+      port: 6379  # Redis
+    - protocol: TCP
+      port: 8000  # Backend
+    - protocol: TCP
+      port: 80    # Frontend

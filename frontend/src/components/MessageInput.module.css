@@ -1,0 +1,120 @@
+.messageInputForm {
+  width: 100%;
+}
+
+.inputContainer {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 12px;
+  background-color: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 24px;
+  transition: border-color 0.2s;
+}
+
+.inputContainer:focus-within {
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.1);
+}
+
+.messageInput {
+  flex: 1;
+  border: none;
+  outline: none;
+  resize: none;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.4;
+  padding: 8px 0;
+  background-color: transparent;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.messageInput::placeholder {
+  color: #999;
+}
+
+.messageInput:disabled {
+  color: #999;
+  cursor: not-allowed;
+}
+
+.sendButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background-color: #007bff;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.sendButton:hover:not(:disabled) {
+  background-color: #0056b3;
+  transform: scale(1.05);
+}
+
+.sendButton:disabled {
+  background-color: #e9ecef;
+  color: #6c757d;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.inputFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+  font-size: 12px;
+  color: #666;
+}
+
+.hint {
+  font-style: italic;
+}
+
+.charCount {
+  font-weight: 500;
+}
+
+.charCount.warning {
+  color: #ffc107;
+}
+
+.charCount.error {
+  color: #dc3545;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .inputContainer {
+    padding: 10px;
+    border-radius: 20px;
+  }
+  
+  .messageInput {
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+  
+  .sendButton {
+    width: 32px;
+    height: 32px;
+  }
+  
+  .inputFooter {
+    font-size: 11px;
+    margin-top: 6px;
+  }
+  
+  .hint {
+    display: none; /* Hide hint on mobile to save space */
+  }
+}

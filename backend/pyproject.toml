@@ -1,0 +1,141 @@
+[project]
+name = "modular-chatbot-backend"
+version = "0.1.0"
+description = "Modular chatbot backend with RouterAgent and specialized AI agents"
+authors = [{ name = "Helder Seiji", email = "tanaka.seiji.h@gmail.com" }]
+readme = "README.md"
+requires-python = ">=3.13"
+license = "MIT"
+keywords = ["chatbot", "ai", "fastapi", "agents"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Framework :: FastAPI",
+]
+
+dependencies = [
+    "fastapi>=0.104.1",
+    "uvicorn[standard]>=0.24.0",
+    "pydantic>=2.5.0",
+    "redis>=5.0.1",
+    "python-multipart>=0.0.6",
+    "slowapi>=0.1.9",
+    "requests>=2.31.0",
+    "langchain>=0.0.350",
+    "langchain-openai>=0.0.5",
+    "langchain-chroma>=0.1.0",
+    "openai>=1.3.7",
+    "beautifulsoup4>=4.12.2",
+    "chromadb>=0.4.18",
+    "nh3>=0.3.0",
+    "google-generativeai>=0.8.5",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.3",
+    "pytest-asyncio>=0.21.1",
+    "pytest-cov>=4.1.0",
+    "ruff>=0.1.0",
+    "ty>=0.0.1a20",
+    "pre-commit>=3.0.0",
+]
+
+[project.scripts]
+start = "app.main:main"
+
+[tool.setuptools.packages.find]
+include = ["app*", "agents*", "models*", "services*"]
+
+# Ruff configuration
+[tool.ruff]
+target-version = "py313"
+line-length = 88
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+    "ARG", # flake8-unused-arguments
+    "SIM", # flake8-simplify
+    "PTH", # flake8-use-pathlib
+    "ERA", # eradicate
+    "PL",  # pylint
+    "RUF", # ruff-specific rules
+]
+ignore = [
+    "E501",    # line too long, handled by black
+    "B008",    # do not perform function calls in argument defaults
+    "C901",    # too complex
+    "PLR0913", # too many arguments
+    "PLR0915", # too many statements
+]
+exclude = [".git", ".venv", "__pycache__", "build", "dist", ".pytest_cache"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.ruff.isort]
+known-first-party = ["app", "agents", "models", "services"]
+force-sort-within-sections = true
+split-on-trailing-comma = true
+
+[tool.ruff.per-file-ignores]
+"tests/*" = ["ARG", "S101", "PLR2004"]
+"__init__.py" = ["F401"]
+
+# Ty configuration for enhanced type checking
+[tool.ty]
+# Ty uses its own configuration format, not mypy-style options
+# Basic configuration for ty type checker
+
+# Pytest configuration
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--cov=app",
+    "--cov=agents",
+    "--cov=models",
+    "--cov=services",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+    "--cov-report=xml",
+]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+]
+
+# Coverage configuration
+[tool.coverage.run]
+source = ["app", "agents", "models", "services"]
+omit = ["*/tests/*", "*/test_*", "*/__init__.py", "*/conftest.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]

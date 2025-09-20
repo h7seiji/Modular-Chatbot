@@ -1,0 +1,40 @@
+# Development overrides for hot reloading and debugging
+services:
+  backend:
+    build:
+      target: builder
+    volumes:
+      - ./backend:/app
+      - backend_venv:/app/.venv
+      - uv_cache:/home/appuser/.cache/uv
+    environment:
+      - ENVIRONMENT=development
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --log-level debug
+    ports:
+      - "8000:8000"
+      - "5678:5678"  # Debug port
+
+  frontend:
+    build:
+      target: development
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+      - REACT_APP_ENVIRONMENT=development
+      - CHOKIDAR_USEPOLLING=true
+    ports:
+      - "3001:3000"  # Use port 3001 to avoid conflicts
+
+  redis:
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --maxmemory 128mb
+
+volumes:
+  backend_venv:
+  frontend_node_modules:
+  uv_cache:

@@ -1,0 +1,216 @@
+.messageList {
+  padding: 0 24px;
+  max-width: 800px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 400px;
+  text-align: center;
+  color: #666;
+}
+
+.emptyIcon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.emptyState h3 {
+  margin: 0 0 8px 0;
+  color: #333;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.emptyState p {
+  margin: 0 0 24px 0;
+  font-size: 16px;
+  color: #666;
+}
+
+.exampleQueries {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 400px;
+}
+
+.exampleQuery {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #555;
+  border: 1px solid #e9ecef;
+}
+
+.exampleIcon {
+  font-size: 16px;
+}
+
+.messageItem {
+  margin-bottom: 16px;
+  display: flex;
+}
+
+.userMessage {
+  justify-content: flex-end;
+}
+
+.agentMessage {
+  justify-content: flex-start;
+}
+
+.messageContent {
+  max-width: 70%;
+  min-width: 200px;
+}
+
+.userMessage .messageContent {
+  background-color: #007bff;
+  color: white;
+  border-radius: 18px 18px 4px 18px;
+  padding: 12px 16px;
+}
+
+.agentMessage .messageContent {
+  background-color: #f1f3f4;
+  color: #333;
+  border-radius: 18px 18px 18px 4px;
+  padding: 12px 16px;
+}
+
+.messageHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+
+.userMessage .messageHeader {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.agentMessage .messageHeader {
+  color: #666;
+}
+
+.agentInfo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+}
+
+.agentIcon {
+  font-size: 14px;
+}
+
+.agentName {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.timestamp {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.messageText {
+  line-height: 1.4;
+  font-size: 14px;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+.loadingIndicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.typingDots {
+  display: flex;
+  gap: 4px;
+}
+
+.typingDots span {
+  width: 6px;
+  height: 6px;
+  background-color: #666;
+  border-radius: 50%;
+  animation: typing 1.4s infinite ease-in-out;
+}
+
+.typingDots span:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.typingDots span:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+.loadingText {
+  font-size: 12px;
+  color: #666;
+  font-style: italic;
+}
+
+@keyframes typing {
+  0%, 80%, 100% {
+    transform: scale(0.8);
+    opacity: 0.5;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .messageList {
+    padding: 0 16px;
+  }
+  
+  .messageContent {
+    max-width: 85%;
+    min-width: 150px;
+  }
+  
+  .emptyState {
+    height: 300px;
+    padding: 0 16px;
+  }
+  
+  .emptyIcon {
+    font-size: 36px;
+  }
+  
+  .emptyState h3 {
+    font-size: 20px;
+  }
+  
+  .emptyState p {
+    font-size: 14px;
+  }
+  
+  .exampleQueries {
+    max-width: 100%;
+  }
+  
+  .exampleQuery {
+    font-size: 13px;
+    padding: 10px 12px;
+  }
+}
