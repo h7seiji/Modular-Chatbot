@@ -7,7 +7,7 @@ import time
 import google.generativeai as genai
 from google.generativeai.types import HarmBlockThreshold, HarmCategory
 
-from agents.base import SpecializedAgent
+from agents.base import SpecializedAgent, math_score
 from app.utils.logger import get_logger
 from models.core import AgentResponse, ConversationContext
 
@@ -50,6 +50,10 @@ class MathAgent(SpecializedAgent):
         )
 
         logger.info("MathAgent initialized successfully")
+
+    def can_handle(self, message: str) -> float:
+        """Score how mathy this looks."""
+        return math_score(message)
 
     async def process(self, message: str, context: ConversationContext) -> AgentResponse:
         """Process mathematical queries using Gemini."""

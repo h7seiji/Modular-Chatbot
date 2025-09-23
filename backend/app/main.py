@@ -9,8 +9,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from agents.base import RouterAgent, SpecializedAgent
-from agents.gemini_knowledge_agent import KnowledgeAgent
 from agents.gemini_math_agent import MathAgent
+from agents.knowledge_agent import KnowledgeAgent
 from app.middleware.security import (
     RequestLoggingMiddleware,
     limiter,
@@ -168,7 +168,6 @@ app = FastAPI(
 limiter = setup_rate_limiting(app)
 
 # Add security middleware (order matters - security first)
-# app.add_middleware(SecurityMiddleware)  # Temporarily disabled - working but causing delays
 app.add_middleware(RequestLoggingMiddleware)
 
 # Add CORS middleware
@@ -179,10 +178,6 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],
 )
-
-
-
-
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
@@ -370,9 +365,10 @@ async def chat_endpoint(request: ChatRequest, http_request: Request) -> ChatResp
             "Message routed successfully",
             extra={
                 "agent": "RouterAgent",
+                "level": "INFO",
                 "conversation_id": conversation_id[:8] + "***" if len(conversation_id) > 8 else "***",
                 "user_id": user_id[:4] + "***" if len(user_id) > 4 else "***",
-                "selected_agent": decision.selected_agent,
+                "decision": decision.selected_agent,
                 "confidence": decision.confidence,
                 "execution_time": total_time
             }
@@ -414,4 +410,4 @@ async def chat_endpoint(request: ChatRequest, http_request: Request) -> ChatResp
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to process chat request"
-        )
+        ) from e

@@ -4,7 +4,7 @@
 
 export interface Message {
   content: string;
-  sender: 'user' | 'agent';
+  sender: "user" | "agent";
   timestamp: string;
   agentType?: string;
 }
@@ -39,10 +39,9 @@ export interface ChatRequest {
 
 export interface ChatResponse {
   response: string;
-  sourceAgentResponse: string;
-  agentWorkflow: Array<{
+  source_agent_response: string;
+  agent_workflow: Array<{
     agent: string;
     decision: string;
   }>;
 }
-

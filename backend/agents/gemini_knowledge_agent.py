@@ -4,10 +4,13 @@ Gemini-based Knowledge Agent for general knowledge and InfinitePay-specific quer
 import os
 import time
 
-from bs4 import BeautifulSoup
 import google.generativeai as genai
 from google.generativeai.types import HarmBlockThreshold, HarmCategory
-import requests
+from langchain.chains import create_retrieval_chain
+from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain.prompts import ChatPromptTemplate
+from langchain.vectorstores import FAISS
+from langchain_google_vertexai import ChatVertexAI, VertexAIEmbeddings
 
 from agents.base import SpecializedAgent
 from app.utils.logger import get_logger
@@ -34,6 +37,23 @@ class KnowledgeAgent(SpecializedAgent):
 
         genai.configure(api_key=api_key)
 
+        embeddings = VertexAIEmbeddings(model_name="text-embedding-004")
+        vectorstore = FAISS.load_local("infinitepay_faiss_index", embeddings)
+        retriever = vectorstore.as_retriever(search_kwargs={"k": 4})
+
+        llm = ChatVertexAI(model_name="gemini-1.5-flash", temperature=0)
+
+        # Prompt: how to inject docs into the LLM
+        prompt = ChatPromptTemplate.from_template(
+            "Use the following context to answer the question.\n\n{context}\n\nQuestion: {input}"
+        )
+
+        # Combine retrieved documents into one input string
+        document_chain = create_stuff_documents_chain(llm, prompt)
+
+        # Wrap it all into a retrieval chain
+        retrieval_chain = create_retrieval_chain(retriever, document_chain)
+
         # Configure the model
         self.model = genai.GenerativeModel(
             model_name="gemini-1.5-flash",
@@ -53,88 +73,18 @@ class KnowledgeAgent(SpecializedAgent):
 
         # Initialize knowledge base
         self.knowledge_base = {}
-        self._initialize_knowledge_base()
 
         logger.info("KnowledgeAgent initialized successfully")
-
-    def _initialize_knowledge_base(self):
-        """Initialize the InfinitePay knowledge base by scraping help content."""
-        try:
-            logger.info("Initializing KnowledgeAgent knowledge base")
-
-            # Scrape InfinitePay help content
-            help_url = "https://ajuda.infinitepay.io/pt-BR/"
-
-            try:
-                response = requests.get(help_url, timeout=10)
-                response.raise_for_status()
-
-                soup = BeautifulSoup(response.content, 'html.parser')
-
-                # Extract article links
-                article_links = []
-                for link in soup.find_all('a', href=True):
-                    href = link.get('href')
-                    if href and '/articles/' in href:
-                        full_url = href if href.startswith('http') else f"https://ajuda.infinitepay.io{href}"
-                        article_links.append(full_url)
-
-                logger.info(f"Found {len(article_links)} article links to scrape")
-
-                # Scrape a subset of articles (limit to avoid overwhelming the system)
-                scraped_content = []
-                for i, url in enumerate(article_links[:10]):  # Limit to first 10 articles
-                    try:
-                        article_response = requests.get(url, timeout=5)
-                        article_response.raise_for_status()
-
-                        article_soup = BeautifulSoup(article_response.content, 'html.parser')
-
-                        # Extract title and content
-                        title = article_soup.find('h1')
-                        title_text = title.get_text().strip() if title else "Unknown"
-
-                        # Extract main content
-                        content_div = article_soup.find('div', class_='article-body') or article_soup.find('main')
-                        if content_div:
-                            content_text = content_div.get_text().strip()
-                            scraped_content.append({
-                                'title': title_text,
-                                'content': content_text[:1000],  # Limit content length
-                                'url': url
-                            })
-
-                    except Exception as e:
-                        logger.warning(f"Failed to scrape article {url}: {e}")
-                        continue
-
-                self.knowledge_base['infinitepay_articles'] = scraped_content
-                logger.info(f"Successfully scraped {len(scraped_content)} articles")
-
-            except Exception as e:
-                logger.warning(f"Failed to scrape InfinitePay help: {e}")
-                # Fallback knowledge base
-                self.knowledge_base['infinitepay_articles'] = [
-                    {
-                        'title': 'InfinitePay Card Machine Fees',
-                        'content': 'InfinitePay offers competitive card machine fees with transparent pricing.',
-                        'url': help_url
-                    }
-                ]
-
-        except Exception as e:
-            logger.error(f"Failed to initialize knowledge base: {e}")
-            self.knowledge_base = {}
 
     def _get_relevant_context(self, message: str) -> str:
         """Get relevant context from the knowledge base."""
         context_parts = []
 
         # Check if query is about InfinitePay
-        if any(keyword in message.lower() for keyword in ['infinitepay', 'payment', 'card', 'machine', 'fees']):
-            articles = self.knowledge_base.get('infinitepay_articles', [])
-            for article in articles[:3]:  # Use top 3 relevant articles
-                context_parts.append(f"Title: {article['title']}\nContent: {article['content']}\n")
+        # if any(keyword in message.lower() for keyword in ['infinitepay', 'payment', 'card', 'machine', 'fees']):
+        articles = self.knowledge_base.get('infinitepay_articles', [])
+        for article in articles[:3]:  # Use top 3 relevant articles
+            context_parts.append(f"Title: {article['title']}\nContent: {article['content']}\n")
 
         return "\n".join(context_parts) if context_parts else ""
 
@@ -156,8 +106,7 @@ class KnowledgeAgent(SpecializedAgent):
             relevant_context = self._get_relevant_context(message)
 
             # Create a comprehensive prompt
-            if relevant_context:
-                prompt = f"""You are a helpful assistant with expertise in InfinitePay payment solutions. Use the following context to answer the user's question:
+            prompt = f"""You are a helpful assistant with expertise in InfinitePay payment solutions. Use the following context to answer the user's question:
 
 CONTEXT:
 {relevant_context}
@@ -165,12 +114,6 @@ CONTEXT:
 USER QUESTION: {message}
 
 Please provide a helpful, accurate response based on the context provided. If the question is about InfinitePay, use the context information. For general questions, provide helpful information while being concise and clear."""
-            else:
-                prompt = f"""You are a helpful assistant. Please answer the following question clearly and concisely:
-
-{message}
-
-Provide accurate, helpful information. If you're not certain about something, please say so."""
 
             # Generate response using Gemini
             response = self.model.generate_content(prompt)
@@ -181,9 +124,9 @@ Provide accurate, helpful information. If you're not certain about something, pl
             execution_time = time.time() - start_time
 
             # Determine sources
-            sources = []
-            if relevant_context and any(keyword in message.lower() for keyword in ['infinitepay', 'payment', 'card']):
-                sources = ["https://ajuda.infinitepay.io/pt-BR/"]
+            # sources = []
+            # if relevant_context and any(keyword in message.lower() for keyword in ['infinitepay', 'payment', 'card']):
+            sources = ["https://ajuda.infinitepay.io/pt-BR/"]
 
             logger.info(
                 "KnowledgeAgent completed processing",

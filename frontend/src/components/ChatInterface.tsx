@@ -1,14 +1,17 @@
-import React, { useState, useEffect, useRef } from 'react';
-import MessageList from './MessageList';
-import MessageInput from './MessageInput';
-import { Message } from '../../types';
-import { ApiService, ApiError } from '../services/api';
-import styles from './ChatInterface.module.css';
+import React, { useState, useEffect, useRef } from "react";
+import MessageList from "./MessageList";
+import MessageInput from "./MessageInput";
+import { Message } from "../../types";
+import { ApiService, ApiError } from "../services/api";
+import styles from "./ChatInterface.module.css";
 
 interface ChatInterfaceProps {
   conversationId: string;
   userId: string;
-  onUpdateConversation: (conversationId: string, messageHistory: Message[]) => void;
+  onUpdateConversation: (
+    conversationId: string,
+    messageHistory: Message[]
+  ) => void;
 }
 
 const ChatInterface: React.FC<ChatInterfaceProps> = ({
@@ -24,7 +27,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   // Scroll to bottom when new messages arrive
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   useEffect(() => {
@@ -51,7 +54,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
     const userMessage: Message = {
       content: messageContent,
-      sender: 'user',
+      sender: "user",
       timestamp: new Date().toISOString(),
     };
 
@@ -69,13 +72,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       });
 
       // Determine which agent handled the response
-      const handlingAgent = response.agentWorkflow?.find(
-        workflow => workflow.agent !== 'RouterAgent'
-      )?.agent || 'Unknown';
+      const handlingAgent =
+        response.agent_workflow?.find(
+          (workflow) => workflow.agent !== "RouterAgent"
+        )?.agent || "Unknown";
 
       const agentMessage: Message = {
         content: response.response,
-        sender: 'agent',
+        sender: "agent",
         timestamp: new Date().toISOString(),
         agentType: handlingAgent,
       };
@@ -83,29 +87,30 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       const updatedMessages = [...newMessages, agentMessage];
       setMessages(updatedMessages);
       onUpdateConversation(conversationId, updatedMessages);
-
     } catch (err) {
-      console.error('Failed to send message:', err);
-      
-      let errorMessage = 'Failed to send message. Please try again.';
-      
+      console.error("Failed to send message:", err);
+
+      let errorMessage = "Failed to send message. Please try again.";
+
       if (err instanceof ApiError) {
         switch (err.code) {
-          case 'NETWORK_ERROR':
-            errorMessage = 'Unable to connect to the server. Please check your connection.';
+          case "NETWORK_ERROR":
+            errorMessage =
+              "Unable to connect to the server. Please check your connection.";
             setIsConnected(false);
             break;
-          case 'VALIDATION_ERROR':
-            errorMessage = 'Invalid message format. Please try again.';
+          case "VALIDATION_ERROR":
+            errorMessage = "Invalid message format. Please try again.";
             break;
-          case 'RATE_LIMIT_EXCEEDED':
-            errorMessage = 'Too many requests. Please wait a moment before trying again.';
+          case "RATE_LIMIT_EXCEEDED":
+            errorMessage =
+              "Too many requests. Please wait a moment before trying again.";
             break;
           default:
             errorMessage = err.message || errorMessage;
         }
       }
-      
+
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -126,8 +131,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       <div className={styles.header}>
         <h2>Conversation</h2>
         <div className={styles.status}>
-          <div className={`${styles.statusIndicator} ${isConnected ? styles.connected : styles.disconnected}`} />
-          <span>{isConnected ? 'Connected' : 'Disconnected'}</span>
+          <div
+            className={`${styles.statusIndicator} ${
+              isConnected ? styles.connected : styles.disconnected
+            }`}
+          />
+          <span>{isConnected ? "Connected" : "Disconnected"}</span>
         </div>
       </div>
 
@@ -155,11 +164,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           onSendMessage={handleSendMessage}
           disabled={isLoading || !isConnected}
           placeholder={
-            !isConnected 
-              ? 'Disconnected - check your connection'
-              : isLoading 
-                ? 'Sending...' 
-                : 'Type your message...'
+            !isConnected
+              ? "Disconnected - check your connection"
+              : isLoading
+              ? "Sending..."
+              : "Type your message..."
           }
         />
       </div>

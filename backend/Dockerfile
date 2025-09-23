@@ -27,6 +27,10 @@ RUN mkdir -p /home/appuser/.cache/uv && \
     chown -R appuser:appuser /home/appuser && \
     chown -R appuser:appuser /app
 
+# Google credentials setup
+COPY google-credentials.json /home/google-credentials.json
+ENV GOOGLE_APPLICATION_CREDENTIALS=/home/google-credentials.json
+
 # Switch to appuser
 USER appuser
 
@@ -37,6 +41,9 @@ RUN mkdir -p /tmp/uv-cache
 # Copy dependency files
 COPY --chown=appuser:appuser pyproject.toml ./
 COPY --chown=appuser:appuser uv.lock ./
+
+# Copy embeddings
+COPY --chown=appuser:appuser /infinitepay_faiss_index ./infinitepay_faiss_index
 
 # Install dependencies using uv
 RUN uv sync
@@ -71,6 +78,10 @@ COPY services/ ./services/
 COPY tests/ ./tests/
 COPY *.py ./
 COPY pyproject.toml ./
+
+# Copy credentials file into production container
+COPY google-credentials.json /home/google-credentials.json
+ENV GOOGLE_APPLICATION_CREDENTIALS=/home/google-credentials.json
 
 # Remove any build artifacts and cache directories
 RUN rm -rf .eggs *.egg-info __pycache__ .pytest_cache
