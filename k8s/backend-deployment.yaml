@@ -19,128 +19,133 @@ spec:
         component: backend
     spec:
       containers:
-      - name: backend
-        image: modular-chatbot-backend:latest  # Replace with your actual image
-        ports:
-        - containerPort: 8000
-          name: http
-        resources:
-          requests:
-            memory: "256Mi"
-            cpu: "200m"
-          limits:
-            memory: "1Gi"
-            cpu: "1000m"
-        env:
-        - name: ENVIRONMENT
-          valueFrom:
-            configMapKeyRef:
-              name: modular-chatbot-config
-              key: ENVIRONMENT
-        - name: DEBUG
-          valueFrom:
-            configMapKeyRef:
-              name: modular-chatbot-config
-              key: DEBUG
-        - name: LOG_LEVEL
-          valueFrom:
-            configMapKeyRef:
-              name: modular-chatbot-config
-              key: LOG_LEVEL
-        - name: CORS_ORIGINS
-          valueFrom:
-            configMapKeyRef:
-              name: modular-chatbot-config
-              key: CORS_ORIGINS
-        - name: REDIS_URL
-          valueFrom:
-            configMapKeyRef:
-              name: modular-chatbot-config
-              key: REDIS_URL
-        - name: RATE_LIMIT_PER_MINUTE
-          valueFrom:
-            configMapKeyRef:
-              name: modular-chatbot-config
-              key: RATE_LIMIT_PER_MINUTE
-        - name: RATE_LIMIT_BURST
-          valueFrom:
-            configMapKeyRef:
-              name: modular-chatbot-config
-              key: RATE_LIMIT_BURST
-        - name: MATH_AGENT_TIMEOUT
-          valueFrom:
-            configMapKeyRef:
-              name: modular-chatbot-config
-              key: MATH_AGENT_TIMEOUT
-        - name: KNOWLEDGE_AGENT_TIMEOUT
-          valueFrom:
-            configMapKeyRef:
-              name: modular-chatbot-config
-              key: KNOWLEDGE_AGENT_TIMEOUT
-        - name: ROUTER_AGENT_TIMEOUT
-          valueFrom:
-            configMapKeyRef:
-              name: modular-chatbot-config
-              key: ROUTER_AGENT_TIMEOUT
-        - name: INFINITEPAY_HELP_URL
-          valueFrom:
-            configMapKeyRef:
-              name: modular-chatbot-config
-              key: INFINITEPAY_HELP_URL
-        - name: OPENAI_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: modular-chatbot-secrets
-              key: OPENAI_API_KEY
-        - name: SECRET_KEY
-          valueFrom:
-            secretKeyRef:
-              name: modular-chatbot-secrets
-              key: SECRET_KEY
-        - name: JWT_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: modular-chatbot-secrets
-              key: JWT_SECRET
-        - name: REDIS_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: modular-chatbot-secrets
-              key: REDIS_PASSWORD
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8000
-          initialDelaySeconds: 30
-          periodSeconds: 10
-          timeoutSeconds: 5
-          failureThreshold: 3
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: 8000
-          initialDelaySeconds: 5
-          periodSeconds: 5
-          timeoutSeconds: 3
-          failureThreshold: 3
-        securityContext:
-          runAsNonRoot: true
-          runAsUser: 1000
-          allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
-          capabilities:
-            drop:
-            - ALL
-        volumeMounts:
-        - name: tmp
-          mountPath: /tmp
-        - name: app-cache
-          mountPath: /app/.cache
+        - name: backend
+          image: modular-chatbot-backend:latest # Replace with your actual image
+          ports:
+            - containerPort: 8000
+              name: http
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          env:
+            - name: ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  name: modular-chatbot-config
+                  key: ENVIRONMENT
+            - name: DEBUG
+              valueFrom:
+                configMapKeyRef:
+                  name: modular-chatbot-config
+                  key: DEBUG
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: modular-chatbot-config
+                  key: LOG_LEVEL
+            - name: CORS_ORIGINS
+              valueFrom:
+                configMapKeyRef:
+                  name: modular-chatbot-config
+                  key: CORS_ORIGINS
+            - name: REDIS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: modular-chatbot-config
+                  key: REDIS_URL
+            - name: RATE_LIMIT_PER_MINUTE
+              valueFrom:
+                configMapKeyRef:
+                  name: modular-chatbot-config
+                  key: RATE_LIMIT_PER_MINUTE
+            - name: RATE_LIMIT_BURST
+              valueFrom:
+                configMapKeyRef:
+                  name: modular-chatbot-config
+                  key: RATE_LIMIT_BURST
+            - name: MATH_AGENT_TIMEOUT
+              valueFrom:
+                configMapKeyRef:
+                  name: modular-chatbot-config
+                  key: MATH_AGENT_TIMEOUT
+            - name: KNOWLEDGE_AGENT_TIMEOUT
+              valueFrom:
+                configMapKeyRef:
+                  name: modular-chatbot-config
+                  key: KNOWLEDGE_AGENT_TIMEOUT
+            - name: ROUTER_AGENT_TIMEOUT
+              valueFrom:
+                configMapKeyRef:
+                  name: modular-chatbot-config
+                  key: ROUTER_AGENT_TIMEOUT
+            - name: INFINITEPAY_HELP_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: modular-chatbot-config
+                  key: INFINITEPAY_HELP_URL
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: modular-chatbot-secrets
+                  key: OPENAI_API_KEY
+            - name: GEMINI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: modular-chatbot-secrets
+                  key: GEMINI_API_KEY
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: modular-chatbot-secrets
+                  key: SECRET_KEY
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: modular-chatbot-secrets
+                  key: JWT_SECRET
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: modular-chatbot-secrets
+                  key: REDIS_PASSWORD
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: app-cache
+              mountPath: /app/.cache
       volumes:
-      - name: tmp
-        emptyDir: {}
-      - name: app-cache
-        emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+        - name: app-cache
+          emptyDir: {}
       securityContext:
         fsGroup: 1000
       restartPolicy: Always

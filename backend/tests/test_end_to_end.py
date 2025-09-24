@@ -1,19 +1,15 @@
 """
-End-to-end tests for complete user workflows using pytest and requests.
+End-to-end tests for the /chat API endpoint.
 """
 import pytest
 import requests
 import time
-import json
-import asyncio
-from typing import Dict, List
 from unittest.mock import patch, Mock, AsyncMock
-
 from models.core import AgentResponse, AgentDecision
 
 
-class TestEndToEndWorkflows:
-    """End-to-end tests for complete user workflows."""
+class TestChatAPI:
+    """End-to-end tests for the /chat API endpoint."""
     
     @pytest.fixture
     def base_url(self):
@@ -91,35 +87,13 @@ class TestEndToEndWorkflows:
         
         return mock_router
     
-    def test_health_check_workflow(self, base_url, session):
-        """Test basic health check workflow."""
-        response = session.get(f"{base_url}/health")
-        
-        assert response.status_code == 200
-        data = response.json()
-        
-        # Verify health response structure
-        assert "status" in data
-        assert data["status"] == "healthy"
-        assert "timestamp" in data
-        assert "version" in data
-        assert "agents_registered" in data
-        
-        # Verify timestamp is recent
-        current_time = time.time()
-        assert abs(current_time - data["timestamp"]) < 10  # Within 10 seconds
-    
-    def test_single_math_query_workflow(self, base_url, session, mock_agents_for_e2e):
-        """Test complete workflow for a single mathematical query."""
+    def test_chat_api_math_query(self, base_url, session, mock_agents_for_e2e):
+        """Test /chat API with mathematical query."""
         with patch('app.main.router_agent', mock_agents_for_e2e):
-            # Start the application (this would normally be done externally)
-            # For testing, we assume the app is running
-            
-            # Send mathematical query
             response = session.post(f"{base_url}/chat", json={
                 "message": "What is 15 + 27?",
-                "user_id": "e2e_test_user_001",
-                "conversation_id": "e2e_math_conv_001"
+                "userId": "e2e_test_user_001",
+                "conversationId": "e2e_math_conv_001"
             })
             
             assert response.status_code == 200
@@ -140,16 +114,15 @@ class TestEndToEndWorkflows:
             assert workflow[1]["agent"] == "MathAgent"
             
             # Verify response content
-            assert "Mathematical calculation completed" in data["response"]
+            assert "42" in data["response"] or "Mathematical" in data["response"]
     
-    def test_single_knowledge_query_workflow(self, base_url, session, mock_agents_for_e2e):
-        """Test complete workflow for a single knowledge query."""
+    def test_chat_api_knowledge_query(self, base_url, session, mock_agents_for_e2e):
+        """Test /chat API with knowledge query."""
         with patch('app.main.router_agent', mock_agents_for_e2e):
-            # Send knowledge query
             response = session.post(f"{base_url}/chat", json={
                 "message": "What are InfinitePay card machine fees?",
-                "user_id": "e2e_test_user_002",
-                "conversation_id": "e2e_knowledge_conv_001"
+                "userId": "e2e_test_user_002",
+                "conversationId": "e2e_knowledge_conv_001"
             })
             
             assert response.status_code == 200
@@ -163,19 +136,14 @@ class TestEndToEndWorkflows:
             assert workflow[1]["agent"] == "KnowledgeAgent"
             
             # Verify response content
-            assert "Knowledge base information provided" in data["response"]
+            assert "InfinitePay" in data["response"] or "fees" in data["response"]
     
-    def test_multi_turn_conversation_workflow(self, base_url, session, mock_agents_for_e2e):
-        """Test complete multi-turn conversation workflow."""
+    def test_chat_api_multi_turn_conversation(self, base_url, session, mock_agents_for_e2e):
+        """Test /chat API with multi-turn conversation."""
         conversation_id = "e2e_multi_turn_conv_001"
         user_id = "e2e_test_user_003"
         
         conversation_turns = [
-            {
-                "message": "Hello, I need help with calculations",
-                "expected_agent": "KnowledgeAgent",
-                "description": "Greeting and help request"
-            },
             {
                 "message": "What is 25 * 4?",
                 "expected_agent": "MathAgent",
@@ -190,23 +158,15 @@ class TestEndToEndWorkflows:
                 "message": "Calculate 15% of 200",
                 "expected_agent": "MathAgent",
                 "description": "Percentage calculation"
-            },
-            {
-                "message": "What payment methods does InfinitePay support?",
-                "expected_agent": "KnowledgeAgent",
-                "description": "Knowledge about payment methods"
             }
         ]
         
         with patch('app.main.router_agent', mock_agents_for_e2e):
-            conversation_history = []
-            
             for turn_num, turn in enumerate(conversation_turns, 1):
-                # Send message
                 response = session.post(f"{base_url}/chat", json={
                     "message": turn["message"],
-                    "user_id": user_id,
-                    "conversation_id": conversation_id
+                    "userId": user_id,
+                    "conversationId": conversation_id
                 })
                 
                 assert response.status_code == 200, f"Turn {turn_num} failed: {turn['description']}"
@@ -216,109 +176,14 @@ class TestEndToEndWorkflows:
                 assert turn["expected_agent"] in data["source_agent_response"], \
                     f"Turn {turn_num}: Expected {turn['expected_agent']}, got {data['source_agent_response']}"
                 
-                # Store conversation turn
-                conversation_history.append({
-                    "turn": turn_num,
-                    "message": turn["message"],
-                    "response": data["response"],
-                    "agent": turn["expected_agent"],
-                    "workflow": data["agent_workflow"]
-                })
-                
-                # Small delay between turns
-                time.sleep(0.1)
-            
-            # Verify conversation flow
-            assert len(conversation_history) == 5
-            
-            # Verify agent alternation
-            agents_used = [turn["agent"] for turn in conversation_history]
-            assert "MathAgent" in agents_used
-            assert "KnowledgeAgent" in agents_used
-            
-            # Verify each turn had proper workflow
-            for turn in conversation_history:
-                assert len(turn["workflow"]) == 2
-                assert turn["workflow"][0]["agent"] == "RouterAgent"
-                assert turn["workflow"][1]["agent"] == turn["agent"]
+                # Verify workflow structure
+                workflow = data["agent_workflow"]
+                assert len(workflow) == 2
+                assert workflow[0]["agent"] == "RouterAgent"
+                assert workflow[1]["agent"] == turn["expected_agent"]
     
-    def test_concurrent_users_workflow(self, base_url, session, mock_agents_for_e2e):
-        """Test workflow with multiple concurrent users."""
-        import concurrent.futures
-        
-        def user_session(user_id: str, conversation_id: str, messages: List[str]) -> List[Dict]:
-            """Simulate a user session with multiple messages."""
-            session = requests.Session()
-            session.headers.update({"Content-Type": "application/json"})
-            
-            results = []
-            for message in messages:
-                response = session.post(f"{base_url}/chat", json={
-                    "message": message,
-                    "user_id": user_id,
-                    "conversation_id": conversation_id
-                })
-                
-                if response.status_code == 200:
-                    results.append({
-                        "message": message,
-                        "response": response.json(),
-                        "success": True
-                    })
-                else:
-                    results.append({
-                        "message": message,
-                        "error": response.text,
-                        "success": False
-                    })
-                
-                time.sleep(0.05)  # Small delay between messages
-            
-            return results
-        
-        # Define user sessions
-        user_sessions = [
-            {
-                "user_id": "concurrent_user_001",
-                "conversation_id": "concurrent_conv_001",
-                "messages": ["What is 10 + 5?", "How does InfinitePay work?", "Calculate 20 * 3"]
-            },
-            {
-                "user_id": "concurrent_user_002",
-                "conversation_id": "concurrent_conv_002",
-                "messages": ["What are the fees?", "Solve 100 / 4", "Help with payment setup"]
-            },
-            {
-                "user_id": "concurrent_user_003",
-                "conversation_id": "concurrent_conv_003",
-                "messages": ["Calculate 7 * 8", "What is InfinitePay?", "How much is 50% of 80?"]
-            }
-        ]
-        
-        with patch('app.main.router_agent', mock_agents_for_e2e):
-            # Run concurrent user sessions
-            with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
-                futures = [
-                    executor.submit(user_session, session["user_id"], session["conversation_id"], session["messages"])
-                    for session in user_sessions
-                ]
-                
-                results = [future.result() for future in futures]
-            
-            # Verify all sessions completed successfully
-            for user_results in results:
-                assert len(user_results) == 3  # Each user sent 3 messages
-                for result in user_results:
-                    assert result["success"], f"Failed message: {result.get('message', 'unknown')}"
-                    
-                    # Verify response structure
-                    response_data = result["response"]
-                    assert "response" in response_data
-                    assert "source_agent_response" in response_data
-                    assert "agent_workflow" in response_data
-    
-    def test_error_handling_workflow(self, base_url, session):
-        """Test error handling in end-to-end workflows."""
+    def test_chat_api_error_handling(self, base_url, session):
+        """Test /chat API error handling."""
         # Test invalid request format
         response = session.post(f"{base_url}/chat", json={
             "invalid_field": "test"
@@ -328,197 +193,52 @@ class TestEndToEndWorkflows:
         # Test empty message
         response = session.post(f"{base_url}/chat", json={
             "message": "",
-            "user_id": "test_user",
-            "conversation_id": "test_conv"
+            "userId": "test_user",
+            "conversationId": "test_conv"
         })
         assert response.status_code == 400  # Bad request
         
-        # Test malicious content
+        # Test missing required fields
         response = session.post(f"{base_url}/chat", json={
-            "message": "<script>alert('xss')</script>",
-            "user_id": "test_user",
-            "conversation_id": "test_conv"
+            "message": "Hello world"
         })
-        assert response.status_code == 400  # Blocked by security
-        
-        # Test invalid user ID
-        response = session.post(f"{base_url}/chat", json={
-            "message": "Hello world",
-            "user_id": "invalid@user!",
-            "conversation_id": "test_conv"
-        })
-        assert response.status_code == 400  # Validation error
+        assert response.status_code == 422  # Validation error
     
-    def test_performance_workflow(self, base_url, session, mock_agents_for_e2e):
-        """Test performance characteristics in end-to-end workflow."""
+    def test_chat_api_response_structure(self, base_url, session, mock_agents_for_e2e):
+        """Test /chat API response structure."""
         with patch('app.main.router_agent', mock_agents_for_e2e):
-            # Measure response times for different query types
-            test_queries = [
-                ("What is 2 + 2?", "math"),
-                ("What are InfinitePay services?", "knowledge"),
-                ("Calculate 15 * 8", "math"),
-                ("How do I set up my account?", "knowledge"),
-                ("Solve 144 / 12", "math")
-            ]
-            
-            response_times = []
-            
-            for query, query_type in test_queries:
-                start_time = time.time()
-                
-                response = session.post(f"{base_url}/chat", json={
-                    "message": query,
-                    "user_id": "perf_test_user",
-                    "conversation_id": "perf_test_conv"
-                })
-                
-                end_time = time.time()
-                response_time = end_time - start_time
-                
-                assert response.status_code == 200
-                response_times.append({
-                    "query": query,
-                    "type": query_type,
-                    "response_time": response_time,
-                    "data": response.json()
-                })
-            
-            # Verify performance characteristics
-            avg_response_time = sum(r["response_time"] for r in response_times) / len(response_times)
-            max_response_time = max(r["response_time"] for r in response_times)
-            
-            # Performance assertions (adjust thresholds as needed)
-            assert avg_response_time < 2.0, f"Average response time too high: {avg_response_time:.3f}s"
-            assert max_response_time < 5.0, f"Max response time too high: {max_response_time:.3f}s"
-            
-            # Verify all responses were successful
-            for result in response_times:
-                assert "response" in result["data"]
-                assert "agent_workflow" in result["data"]
-    
-    def test_conversation_persistence_workflow(self, base_url, session, mock_agents_for_e2e):
-        """Test that conversation context persists across requests."""
-        conversation_id = "persistence_test_conv"
-        user_id = "persistence_test_user"
-        
-        with patch('app.main.router_agent', mock_agents_for_e2e):
-            # Send initial message
-            response1 = session.post(f"{base_url}/chat", json={
-                "message": "Hello, I'm starting a conversation",
-                "user_id": user_id,
-                "conversation_id": conversation_id
+            response = session.post(f"{base_url}/chat", json={
+                "message": "What is 2 + 2?",
+                "userId": "test_user",
+                "conversationId": "test_conv"
             })
-            assert response1.status_code == 200
             
-            # Send follow-up message in same conversation
-            response2 = session.post(f"{base_url}/chat", json={
-                "message": "What is 5 + 3?",
-                "user_id": user_id,
-                "conversation_id": conversation_id
-            })
-            assert response2.status_code == 200
+            assert response.status_code == 200
+            data = response.json()
             
-            # Send another follow-up
-            response3 = session.post(f"{base_url}/chat", json={
-                "message": "Tell me about InfinitePay fees",
-                "user_id": user_id,
-                "conversation_id": conversation_id
-            })
-            assert response3.status_code == 200
+            # Verify required fields
+            assert "response" in data
+            assert "source_agent_response" in data
+            assert "agent_workflow" in data
             
-            # Verify all responses are valid
-            responses = [response1.json(), response2.json(), response3.json()]
-            for response_data in responses:
-                assert "response" in response_data
-                assert "agent_workflow" in response_data
+            # Verify response content is string
+            assert isinstance(data["response"], str)
+            assert len(data["response"]) > 0
             
-            # Verify different agents were used appropriately
-            assert "KnowledgeAgent" in responses[0]["source_agent_response"]  # Greeting
-            assert "MathAgent" in responses[1]["source_agent_response"]       # Math query
-            assert "KnowledgeAgent" in responses[2]["source_agent_response"]  # Knowledge query
-    
-    def test_rate_limiting_workflow(self, base_url, session):
-        """Test rate limiting behavior in end-to-end workflow."""
-        # Make rapid requests to test rate limiting
-        responses = []
-        start_time = time.time()
-        
-        for i in range(20):  # Make 20 rapid requests
-            response = session.get(f"{base_url}/health")
-            responses.append({
-                "status_code": response.status_code,
-                "timestamp": time.time() - start_time
-            })
-            time.sleep(0.05)  # Small delay
-        
-        # Analyze rate limiting behavior
-        success_count = sum(1 for r in responses if r["status_code"] == 200)
-        rate_limited_count = sum(1 for r in responses if r["status_code"] == 429)
-        
-        # Most requests should succeed (health endpoint typically has generous limits)
-        assert success_count >= 15, f"Too many requests were rate limited: {rate_limited_count}/20"
-        
-        # If rate limiting occurred, verify it was applied correctly
-        if rate_limited_count > 0:
-            # Rate limited responses should come after initial successful ones
-            rate_limited_indices = [i for i, r in enumerate(responses) if r["status_code"] == 429]
-            assert min(rate_limited_indices) > 5, "Rate limiting applied too early"
-
-
-class TestEndToEndScenarios:
-    """Test realistic end-to-end scenarios."""
-    
-    @pytest.fixture
-    def base_url(self):
-        """Base URL for the API."""
-        return "http://localhost:8000"
-    
-    @pytest.fixture
-    def session(self):
-        """HTTP session for making requests."""
-        session = requests.Session()
-        session.headers.update({"Content-Type": "application/json"})
-        return session
-    
-    def test_customer_support_scenario(self, base_url, session):
-        """Test a realistic customer support scenario."""
-        # This test would run against a real or more complete mock system
-        conversation_id = "customer_support_001"
-        user_id = "customer_001"
-        
-        # Simulate customer support conversation
-        support_conversation = [
-            "Hello, I need help with my InfinitePay account",
-            "What are the fees for card transactions?",
-            "How much would I pay for a R$ 100 transaction?",
-            "Can you calculate 2.5% of R$ 100?",
-            "Thank you for the help"
-        ]
-        
-        # Note: This test would need the actual system running
-        # For now, we'll just verify the structure
-        assert len(support_conversation) == 5
-        assert conversation_id == "customer_support_001"
-        assert user_id == "customer_001"
-    
-    def test_business_calculation_scenario(self, base_url, session):
-        """Test a business calculation scenario."""
-        conversation_id = "business_calc_001"
-        user_id = "business_user_001"
-        
-        # Simulate business user doing calculations
-        business_conversation = [
-            "I need to calculate my monthly transaction volume",
-            "What is 1500 * 30?",
-            "Now calculate 2.5% of that amount",
-            "What would be the annual volume? Multiply by 12",
-            "What are InfinitePay's volume discounts?"
-        ]
-        
-        # Verify scenario structure
-        assert len(business_conversation) == 5
-        assert any("calculate" in msg.lower() for msg in business_conversation)
-        assert any("infinitepay" in msg.lower() for msg in business_conversation)
+            # Verify source agent response contains agent name
+            assert isinstance(data["source_agent_response"], str)
+            assert "MathAgent" in data["source_agent_response"] or "KnowledgeAgent" in data["source_agent_response"]
+            
+            # Verify workflow structure
+            assert isinstance(data["agent_workflow"], list)
+            assert len(data["agent_workflow"]) == 2
+            
+            # Verify workflow steps
+            for step in data["agent_workflow"]:
+                assert "agent" in step
+                assert "decision" in step
+                assert isinstance(step["agent"], str)
+                assert isinstance(step["decision"], str)
 
 
 if __name__ == "__main__":

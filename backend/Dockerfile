@@ -45,8 +45,8 @@ COPY --chown=appuser:appuser uv.lock ./
 # Copy embeddings
 COPY --chown=appuser:appuser /infinitepay_faiss_index ./infinitepay_faiss_index
 
-# Install dependencies using uv
-RUN uv sync
+# Install dependencies including dev dependencies using uv
+RUN uv sync --all-extras
 
 # Production stage
 FROM python:3.13-slim AS production
@@ -60,6 +60,9 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd -r appuser && useradd -r -g appuser appuser
+
+# Install uv for running tests
+RUN pip install uv
 
 # Copy the virtual environment from builder
 COPY --from=builder /app/.venv /app/.venv

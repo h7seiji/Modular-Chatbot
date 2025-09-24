@@ -86,7 +86,7 @@ function Test-Secrets {
     
     Write-Status "Checking secrets configuration..."
     Write-Warning "Please update the secrets in k8s/secrets.yaml with your actual values:"
-    Write-Warning "  - OPENAI_API_KEY: Your OpenAI API key (base64 encoded)"
+    Write-Warning "  - GEMINI_API_KEY: Your Gemini API key (base64 encoded)"
     Write-Warning "  - SECRET_KEY: Your application secret key (base64 encoded)"
     Write-Warning "  - JWT_SECRET: Your JWT secret (base64 encoded)"
     Write-Warning "  - TLS certificate and key for HTTPS"
@@ -185,7 +185,8 @@ function Test-Deployment {
         Write-Host ""
         Write-Host "Check pod logs with:"
         Write-Host "  kubectl logs <pod-name> -n $Namespace"
-    } else {
+    }
+    else {
         Write-Status "All pods are running successfully!"
     }
 }

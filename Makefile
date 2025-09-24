@@ -43,7 +43,7 @@ clean:
 
 # Run tests
 test:
-	docker-compose exec backend pytest
+	docker-compose exec backend uv run pytest
 	docker-compose exec frontend npm test -- --run
 
 # Check service health

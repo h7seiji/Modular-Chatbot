@@ -1,16 +1,15 @@
 """
 Pytest configuration and shared fixtures for the test suite.
 """
+import os
 import pytest
 import asyncio
-import os
 import tempfile
 from datetime import datetime
-from unittest.mock import Mock, AsyncMock, patch
-from typing import Dict, Any
+from unittest.mock import Mock, patch
 
-from backend.models.core import ConversationContext, Message, AgentResponse, AgentDecision
-from backend.agents.base import RouterAgent, SpecializedAgent
+from models.core import ConversationContext, Message, AgentResponse, AgentDecision
+from agents.base import RouterAgent, SpecializedAgent
 
 
 # Configure asyncio for pytest
@@ -23,9 +22,9 @@ def event_loop():
 
 
 @pytest.fixture
-def mock_openai_api_key():
-    """Mock OpenAI API key for testing."""
-    with patch.dict(os.environ, {"OPENAI_API_KEY": "test-api-key-12345"}):
+def mock_gemini_api_key():
+    """Mock Gemini API key for testing."""
+    with patch.dict(os.environ, {"GEMINI_API_KEY": "test-api-key-12345"}):
         yield "test-api-key-12345"
 
 
@@ -306,23 +305,22 @@ def cleanup_environment():
 
 
 @pytest.fixture
-def mock_openai_client():
-    """Mock OpenAI client for testing."""
+def mock_gemini_client():
+    """Mock Gemini client for testing."""
     mock_client = Mock()
     
-    # Mock chat completion response
+    # Mock Gemini response
     mock_response = Mock()
-    mock_response.choices = [Mock()]
-    mock_response.choices[0].message.content = "Mocked OpenAI response"
+    mock_response.text = "Mocked Gemini response"
     
-    mock_client.chat.completions.create.return_value = mock_response
+    mock_client.generate_content.return_value = mock_response
     
     return mock_client
 
 
 @pytest.fixture
 def mock_embeddings():
-    """Mock OpenAI embeddings for testing."""
+    """Mock Gemini embeddings for testing."""
     mock_embeddings = Mock()
     mock_embeddings.embed_documents.return_value = [[0.1, 0.2, 0.3]] * 5
     mock_embeddings.embed_query.return_value = [0.1, 0.2, 0.3]

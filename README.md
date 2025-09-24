@@ -8,11 +8,11 @@ A modern, production-ready chatbot system with intelligent agent routing, compre
 
 - Docker Engine 20.10+
 - Docker Compose 2.0+
-- Google Gemini API key (recommended) or OpenAI API key (optional, system works with mock agents)
+- Google Gemini API key (required, system falls back to mock agents if unavailable)
 
 ### Getting API Keys
 
-#### Google Gemini API Key (Recommended)
+#### Google Gemini API Key (Required)
 
 1. Visit [Google AI Studio](https://aistudio.google.com/app/apikey)
 2. Sign in with your Google account
@@ -20,15 +20,7 @@ A modern, production-ready chatbot system with intelligent agent routing, compre
 4. Copy the generated API key
 5. Add it to your `.env` file as `GEMINI_API_KEY=your_key_here`
 
-#### OpenAI API Key (Fallback)
-
-1. Visit [OpenAI Platform](https://platform.openai.com/api-keys)
-2. Sign in to your OpenAI account
-3. Click "Create new secret key"
-4. Copy the generated API key
-5. Add it to your `.env` file as `OPENAI_API_KEY=your_key_here`
-
-**Note**: The system uses Gemini as the primary AI provider and automatically falls back to OpenAI if Gemini is unavailable. If neither key is provided, the system uses mock agents for testing.
+**Note**: The system uses Gemini as the AI provider. If the API key is not provided or invalid, the system falls back to mock agents for testing.
 
 ### Quick Start
 
@@ -38,7 +30,7 @@ A modern, production-ready chatbot system with intelligent agent routing, compre
    git clone <repository>
    cd modular-chatbot
    cp .env.example .env
-   # Edit .env with your Gemini API key (recommended) or OpenAI API key (optional)
+   # Edit .env with your Gemini API key
    ```
 
 2. **Start development environment**:
@@ -127,7 +119,7 @@ graph TB
     API --> Redis[(Redis Storage)]
     Knowledge --> RAG[RAG System]
     RAG --> InfinitePay[InfinitePay Help Content]
-    Math --> LLM[Gemini/OpenAI LLM]
+    Math --> LLM[Gemini LLM]
     
     subgraph "Security Layer"
         Security[Input Sanitization]
@@ -150,32 +142,28 @@ graph TB
 - **Knowledge queries**: Identifies question words, InfinitePay-related terms, help-seeking language
 - **Fallback**: Routes to KnowledgeAgent if confidence is below threshold (0.5)
 
-#### AI Provider Selection
+#### AI Provider
 
-The system implements intelligent AI provider selection with automatic fallback:
+The system uses Google Gemini as the primary AI provider:
 
-1. **Primary**: Google Gemini (gemini-1.5-flash model)
+1. **Google Gemini (gemini-1.5-flash model)**
    - Fast and efficient for most queries
    - Cost-effective with high rate limits
    - Excellent performance for both math and knowledge tasks
+   - Free tier available with generous usage limits
 
-2. **Fallback**: OpenAI (GPT-4 model)
-   - Activated when Gemini is unavailable or fails
-   - Provides reliable backup functionality
-   - Maintains service continuity
-
-3. **Mock Agents**: Used when no API keys are available
+2. **Mock Agents**: Used when API key is unavailable
    - Enables testing and development without API costs
    - Returns predefined responses for common query types
 
 #### Agents
 
-- **MathAgent**: Solves mathematical expressions using Google Gemini (primary) or OpenAI GPT-4 (fallback) for interpretation
+- **MathAgent**: Solves mathematical expressions using Google Gemini for interpretation
 - **KnowledgeAgent**: Provides RAG-based responses using InfinitePay help content
   - Web scraping from <https://ajuda.infinitepay.io/pt-BR/>
-  - Vector embeddings with Google Gemini (primary) or OpenAI text-embedding-ada-002 (fallback)
-  - ChromaDB for semantic search
-  - Context-augmented response generation with intelligent AI provider selection
+  - Vector embeddings with Google Gemini (text-embedding-004 model)
+  - FAISS for semantic search
+  - Context-augmented response generation with Google Gemini
 
 #### Logs
 
@@ -186,10 +174,11 @@ The system implements intelligent AI provider selection with automatic fallback:
 
 #### Redis
 
-- **Conversation Storage**: Message history with TTL
-- **Agent Metrics**: Performance tracking and caching
-- **Rate Limiting**: IP-based request counting
-- **Session Management**: User conversation context
+- **Conversation Storage**: Complete message history with TTL (7 days default)
+- **Simplified Logging**: Structured logging system with component-based organization
+- **Rate Limiting**: Distributed rate limiting with Redis-backed counters
+- **User Management**: Per-user conversation tracking and retrieval
+- **Health Monitoring**: Redis health checks and connection status
 
 ## How to Access the Front-end and Test Multiple Conversations
 
@@ -328,7 +317,7 @@ The system implements intelligent AI provider selection with automatic fallback:
 
 ### Input Sanitization Process
 
-1. **HTML Tag Removal**: Uses `bleach` library to remove all HTML tags and attributes
+1. **HTML Tag Removal**: Uses `nh3` library to remove all HTML tags and attributes
 2. **Control Character Filtering**: Removes non-printable control characters
 3. **Whitespace Normalization**: Standardizes whitespace and removes excessive spacing
 4. **Length Validation**: Enforces maximum input length of 10,000 characters
@@ -388,97 +377,70 @@ SCRIPT_PATTERNS = [
 - **Automatic blocking**: Requests exceeding limits receive 429 status
 - **Redis-backed**: Uses Redis for distributed rate limiting
 
+## Redis API Endpoints
+
+The system provides several endpoints for Redis-based functionality:
+
+### Conversation Management
+
+- `GET /conversations/{conversation_id}` - Retrieve conversation history
+- `GET /conversations/user/{user_id}` - Get all conversations for a user
+
+### Logging System
+
+- `GET /logs` - Retrieve logs by component and level
+- `GET /logs/stats` - Get logging statistics
+
+### Health Monitoring
+
+- `GET /health` - System health including Redis status
+
+### Example Usage
+
+```bash
+# Get conversation history
+curl http://localhost:8000/conversations/demo-conv-123
+
+# Get user's conversations
+curl http://localhost:8000/conversations/user/user-456
+
+# Get recent chat logs
+curl http://localhost:8000/logs?component=chat&level=info&limit=50
+
+# Get log statistics
+curl http://localhost:8000/logs/stats?component=chat
+```
+
 ## How to Run the Tests
 
-### Comprehensive Test Suite
+### Essential Test Suite
 
 ```bash
-# Run all tests (backend + frontend)
-make test
+# Run all essential tests
+cd backend && python run_tests.py
 
-# Backend tests only
+# Run specific test categories
+python run_tests.py router_agent  # RouterAgent decision tests
+python run_tests.py math_agent    # MathAgent expression tests  
+python run_tests.py end_to_end    # E2E /chat API tests
+
+# Run with pytest directly
 cd backend && python -m pytest tests/ -v
-
-# Frontend tests only
-cd frontend && npm test
-
-# Specific test categories
-cd backend && python -m pytest tests/test_security.py -v    # Security tests
-cd backend && python -m pytest tests/test_integration.py -v # Integration tests
-cd backend && python -m pytest tests/test_performance.py -v # Performance tests
 ```
 
-### Individual Test Scripts
+### Test Coverage
 
-```bash
-# Simple security verification
-cd backend && python test_security_simple.py
+- **RouterAgent Decision Tests**: Routing logic and agent selection
+- **MathAgent Expression Tests**: Simple mathematical expression processing
+- **E2E /chat API Tests**: Complete API endpoint functionality
 
-# API integration testing
-python test_api.py
+### Test Requirements
 
-# Knowledge agent testing
-python test_knowledge_agent_integration.py
+The test suite focuses on essential functionality:
 
-# Math agent testing
-python test_math_agent_integration.py
-
-# Frontend integration testing
-node test_frontend_integration.js
-```
-
-### Docker-based Testing
-
-```bash
-# Test in containerized environment
-docker-compose exec backend pytest tests/ -v
-docker-compose exec frontend npm test -- --run
-
-# Test with fresh containers
-make clean
-make build
-make test
-```
-
-### Test Categories
-
-#### Security Tests
-
-- Input sanitization validation
-- Prompt injection detection
-- Rate limiting functionality
-- Error handling security
-
-#### Integration Tests
-
-- End-to-end API workflows
-- Agent routing accuracy
-- Database connectivity
-- External service integration
-
-#### Performance Tests
-
-- Response time benchmarks
-- Concurrent request handling
-- Memory usage validation
-- Rate limiting effectiveness
-
-#### Unit Tests
-
-- Individual component functionality
-- Agent logic validation
-- Utility function testing
-- Data model validation
-
-### Test Results Interpretation
-
-Tests provide detailed output including:
-
-- **Pass/Fail Status**: Clear indication of test results
-- **Performance Metrics**: Response times and resource usage
-- **Security Validation**: Confirmation of security measures
-- **Coverage Reports**: Code coverage statistics
-- **Error Details**: Specific failure information for debugging
+1. **RouterAgent Decision**: Tests that the router correctly selects agents based on message content
+2. **MathAgent Simple Expressions**: Tests basic mathematical expression processing  
+3. **E2E /chat API**: Tests the complete API workflow from request to response
 
 ## Configuration
 
@@ -487,9 +449,8 @@ Tests provide detailed output including:
 Create a `.env` file with:
 
 ```env
-# AI API Configuration (at least one required)
-GEMINI_API_KEY=your_gemini_api_key_here      # Primary AI provider (recommended)
-OPENAI_API_KEY=your_openai_api_key_here      # Fallback AI provider (optional)
+# AI API Configuration
+GEMINI_API_KEY=your_gemini_api_key_here      # Required AI provider
 
 # Optional Configuration
 REDIS_URL=redis://redis:6379/0
@@ -504,23 +465,19 @@ MATH_AGENT_TIMEOUT=30
 ### API Key Setup
 
 #### Gemini API Key (Free Tier Available)
+
 - Visit [Google AI Studio](https://aistudio.google.com/app/apikey)
 - Free tier includes generous usage limits
 - No credit card required for basic usage
 - Excellent performance for most use cases
-
-#### OpenAI API Key (Paid Service)
-- Visit [OpenAI Platform](https://platform.openai.com/api-keys)
-- Requires payment setup
-- Used as fallback when Gemini is unavailable
-- Optional but recommended for production environments
+- Required for the system to function properly
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **AI API Keys Missing**: System falls back to mock agents if neither Gemini nor OpenAI keys are provided
-2. **Gemini API Key Invalid**: System automatically falls back to OpenAI if available
+1. **Gemini API Key Missing**: System falls back to mock agents if Gemini API key is not provided
+2. **Gemini API Key Invalid**: System falls back to mock agents if Gemini API key is invalid
 3. **Port Conflicts**: Check ports 3000, 8000, 6379 availability
 4. **Docker Issues**: Run `make clean && make build && make dev`
 5. **Service Health**: Check with `make health`

@@ -5,8 +5,8 @@ A modern Python backend for the modular chatbot system featuring RouterAgent and
 ## Features
 
 - **RouterAgent**: Intelligent query routing to specialized agents
-- **KnowledgeAgent**: RAG-based responses using InfinitePay help content with web scraping and vector embeddings (Gemini/OpenAI)
-- **MathAgent**: Mathematical expression solving with LLM interpretation (Gemini/OpenAI)
+- **KnowledgeAgent**: RAG-based responses using InfinitePay help content with web scraping and vector embeddings (Gemini)
+- **MathAgent**: Mathematical expression solving with LLM interpretation (Gemini)
 - **Modern Tooling**: Built with uv, ruff, and ty for enhanced development experience
 - **Comprehensive Testing**: Unit and integration tests with coverage reporting
 - **Security**: Input sanitization and prompt injection prevention
@@ -17,7 +17,7 @@ A modern Python backend for the modular chatbot system featuring RouterAgent and
 - Python 3.13+
 - [uv](https://docs.astral.sh/uv/getting-started/installation/) - Python package manager
 - Redis (for conversation storage)
-- Google Gemini API key (recommended) or OpenAI API key (for KnowledgeAgent and MathAgent)
+- Google Gemini API key (for KnowledgeAgent and MathAgent)
 
 ## Quick Start
 
@@ -143,10 +143,8 @@ backend/
 │   ├── __init__.py
 │   ├── base.py         # Base agent classes
 │   ├── router_agent.py # Query routing logic
-│   ├── math_agent.py   # Mathematical calculations (OpenAI)
-│   ├── knowledge_agent.py # RAG-based responses (OpenAI)
 │   ├── gemini_math_agent.py # Mathematical calculations (Gemini)
-│   └── gemini_knowledge_agent.py # RAG-based responses (Gemini)
+│   └── knowledge_agent.py # RAG-based responses (Gemini with FAISS)
 ├── models/             # Data models
 │   ├── __init__.py
 │   └── core.py         # Pydantic models
@@ -179,8 +177,7 @@ Create a `.env` file for local development:
 
 ```env
 REDIS_URL=redis://localhost:6379
-GEMINI_API_KEY=your_gemini_api_key        # Primary AI provider (recommended)
-OPENAI_API_KEY=your_openai_api_key        # Fallback AI provider (optional)
+GEMINI_API_KEY=your_gemini_api_key        # Required AI provider
 LOG_LEVEL=INFO
 CHROMA_PERSIST_DIR=./chroma_db
 MAX_SCRAPE_PAGES=50
@@ -189,39 +186,32 @@ KNOWLEDGE_AGENT_TIMEOUT=30
 
 ## AI Provider Architecture
 
-The system supports multiple AI providers with intelligent fallback:
+The system uses Google Gemini as the primary AI provider:
 
-### Gemini Agents (Primary)
-- **GeminiMathAgent**: Uses Google Gemini 1.5 Flash for mathematical calculations
-- **GeminiKnowledgeAgent**: Uses Google Gemini for RAG-based knowledge responses
-- **Benefits**: Fast, cost-effective, high rate limits
-
-### OpenAI Agents (Fallback)
-- **MathAgent**: Uses OpenAI GPT-4 for mathematical calculations
-- **KnowledgeAgent**: Uses OpenAI GPT-4 and text-embedding-ada-002 for RAG responses
-- **Benefits**: Reliable backup, proven performance
+### Gemini Agents
+- **MathAgent**: Uses Google Gemini 1.5 Flash for mathematical calculations
+- **KnowledgeAgent**: Uses Google Gemini for RAG-based knowledge responses
+- **Benefits**: Fast, cost-effective, high rate limits, free tier available
 
 ### Selection Logic
-1. Try Gemini agents first (if `GEMINI_API_KEY` is available)
-2. Fall back to OpenAI agents (if `OPENAI_API_KEY` is available)
-3. Use mock agents for testing (if no API keys are provided)
+1. Use Gemini agents if `GEMINI_API_KEY` is available
+2. Fall back to mock agents for testing if no API key is provided
 
 ## KnowledgeAgent Details
 
-The KnowledgeAgent (both Gemini and OpenAI versions) implements Retrieval-Augmented Generation (RAG) to provide accurate responses about InfinitePay services:
+The KnowledgeAgent implements Retrieval-Augmented Generation (RAG) to provide accurate responses about InfinitePay services:
 
 ### Features
 - **Web Scraping**: Automatically scrapes content from https://ajuda.infinitepay.io/pt-BR/
-- **Vector Embeddings**: Uses Google Gemini (primary) or OpenAI embeddings (fallback) for semantic search
-- **ChromaDB**: Persistent vector storage for efficient retrieval
+- **Vector Embeddings**: Uses Google Gemini embeddings for semantic search
+- **FAISS**: Persistent vector storage for efficient retrieval
 - **Source Attribution**: Provides source URLs for generated responses
 - **Intelligent Routing**: High confidence for InfinitePay-specific queries
-- **AI Provider Fallback**: Automatically switches from Gemini to OpenAI if needed
 
 ### Configuration
-- `CHROMA_PERSIST_DIR`: Directory for ChromaDB storage (default: ./chroma_db)
+- `CHROMA_PERSIST_DIR`: Directory for FAISS storage (default: ./chroma_db)
 - `MAX_SCRAPE_PAGES`: Maximum pages to scrape (default: 50)
-- `KNOWLEDGE_AGENT_TIMEOUT`: OpenAI API timeout in seconds (default: 30)
+- `KNOWLEDGE_AGENT_TIMEOUT`: Gemini API timeout in seconds (default: 30)
 
 ### Testing
 ```bash

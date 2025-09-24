@@ -23,12 +23,20 @@ from app.utils.validation import (
     SecurityValidator,
 )
 from models.core import ChatRequest, ChatResponse, ConversationContext, Message
+from services.redis_client import get_redis_client, initialize_redis_client
+from app.utils.redis_logger import get_redis_logger, initialize_redis_logger
 
 # Initialize logger
 logger = get_logger(__name__)
 
 # Global router agent instance
 router_agent: RouterAgent | None = None
+
+# Global Redis client instance
+redis_client = None
+
+# Global Redis logger instance
+redis_logger = None
 
 
 class MockMathAgent(SpecializedAgent):
@@ -121,15 +129,46 @@ class MockKnowledgeAgent(SpecializedAgent):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager."""
-    global router_agent
+    global router_agent, redis_client, redis_logger
 
     # Startup
     logger.info("Starting up FastAPI application")
 
+    # Initialize Redis client
+    try:
+        import os
+        redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+        # Parse Redis URL to extract connection details
+        if redis_url.startswith("redis://"):
+            # Simple parsing for redis://host:port/db format
+            url_parts = redis_url.replace("redis://", "").split("/")
+            host_port = url_parts[0].split(":")
+            host = host_port[0]
+            port = int(host_port[1]) if len(host_port) > 1 else 6379
+            db = int(url_parts[1]) if len(url_parts) > 1 else 0
+            
+            redis_client = initialize_redis_client(host=host, port=port, db=db)
+            if redis_client.health_check():
+                logger.info(f"Redis client initialized successfully: {host}:{port}/{db}")
+                # Initialize Redis logger with the Redis client
+                redis_logger = initialize_redis_logger(redis_client=redis_client)
+                logger.info("Redis logger initialized successfully")
+            else:
+                logger.warning("Redis health check failed, but client initialized")
+                redis_logger = None
+        else:
+            redis_client = get_redis_client()
+            logger.info("Redis client initialized with default settings")
+            redis_logger = get_redis_logger()
+    except Exception as e:
+        logger.error(f"Failed to initialize Redis client: {e}")
+        redis_client = None
+        redis_logger = None
+
     # Initialize router agent and register agents
     router_agent = RouterAgent()
 
-    # Try to initialize Gemini agents first, then fall back to OpenAI, then to mock
+    # Try to initialize Gemini agents, fall back to mock if unavailable
     try:
         math_agent = MathAgent()
         logger.info("MathAgent initialized successfully")
@@ -137,7 +176,6 @@ async def lifespan(app: FastAPI):
         logger.warning(f"Failed to initialize Gemini MathAgent: {e}, using mock")
         math_agent = MockMathAgent()
 
-    # Try to initialize Gemini KnowledgeAgent first, then fall back to OpenAI, then to mock
     try:
         knowledge_agent = KnowledgeAgent()
         logger.info("KnowledgeAgent initialized successfully")
@@ -222,8 +260,153 @@ async def health_check(request: Request):
         "status": "healthy",
         "timestamp": time.time(),
         "version": "0.1.0",
-        "agents_registered": len(router_agent.agents) if router_agent else 0
+        "agents_registered": len(router_agent.agents) if router_agent else 0,
+        "redis_available": redis_client is not None and redis_client.health_check() if redis_client else False
     }
+
+
+@app.get("/logs")
+@rate_limit_general()
+async def get_logs(
+    request: Request,
+    component: str = "general",
+    level: str = "info",
+    limit: int = 100,
+    hours: int = 24
+):
+    """Get logs from Redis-based logging system."""
+    if not redis_logger:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Redis logger not available"
+        )
+    
+    try:
+        from app.utils.redis_logger import LogLevel
+        
+        # Validate log level
+        try:
+            log_level = LogLevel(level.upper())
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid log level: {level}. Valid levels: debug, info, warning, error, critical"
+            )
+        
+        # Get logs
+        if level.lower() == "all":
+            logs = redis_logger.get_recent_logs(component=component, hours=hours, limit=limit)
+        else:
+            logs = redis_logger.get_logs(log_level, component=component, limit=limit)
+        
+        return {
+            "component": component,
+            "level": level,
+            "limit": limit,
+            "hours": hours,
+            "count": len(logs),
+            "logs": logs
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving logs: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve logs"
+        )
+
+
+@app.get("/logs/stats")
+@rate_limit_general()
+async def get_log_stats(request: Request, component: str = "general"):
+    """Get logging statistics from Redis."""
+    if not redis_logger:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Redis logger not available"
+        )
+    
+    try:
+        stats = redis_logger.get_log_stats(component=component)
+        return stats
+    except Exception as e:
+        logger.error(f"Error retrieving log stats: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve log statistics"
+        )
+
+
+@app.get("/conversations/{conversation_id}")
+@rate_limit_general()
+async def get_conversation(request: Request, conversation_id: str):
+    """Get conversation history from Redis."""
+    if not redis_client:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Redis client not available"
+        )
+    
+    try:
+        conversation = redis_client.retrieve_conversation(conversation_id)
+        if not conversation:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Conversation not found"
+            )
+        
+        # Convert to dict for JSON response
+        conversation_data = {
+            "conversation_id": conversation.conversation_id,
+            "user_id": conversation.user_id,
+            "timestamp": conversation.timestamp.isoformat(),
+            "message_count": len(conversation.message_history),
+            "messages": [
+                {
+                    "content": msg.content,
+                    "sender": msg.sender,
+                    "timestamp": msg.timestamp.isoformat(),
+                    "agent_type": msg.agent_type
+                }
+                for msg in conversation.message_history
+            ]
+        }
+        
+        return conversation_data
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving conversation {conversation_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve conversation"
+        )
+
+
+@app.get("/conversations/user/{user_id}")
+@rate_limit_general()
+async def get_user_conversations(request: Request, user_id: str):
+    """Get all conversation IDs for a user from Redis."""
+    if not redis_client:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Redis client not available"
+        )
+    
+    try:
+        conversation_ids = redis_client.get_user_conversations(user_id)
+        return {
+            "user_id": user_id,
+            "conversation_count": len(conversation_ids),
+            "conversation_ids": conversation_ids
+        }
+    except Exception as e:
+        logger.error(f"Error retrieving conversations for user {user_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve user conversations"
+        )
 
 
 @app.post("/chat", response_model=ChatResponse)
@@ -242,41 +425,83 @@ async def chat_endpoint(request: ChatRequest, http_request: Request) -> ChatResp
     """
     start_time = time.time()
 
-    # Manual rate limiting
+    # Redis-based rate limiting
     try:
-
-        # Check rate limit manually
         client_ip = http_request.client.host if http_request.client else "unknown"
-        rate_limit_key = f"chat:{client_ip}"
+        rate_limit_key = f"rate_limit:chat:{client_ip}"
+        
+        if redis_client:
+            # Use Redis for rate limiting (30 requests per minute)
+            current_time = int(time.time())
+            minute_window = int(current_time / 60)  # Current minute
+            redis_key = f"{rate_limit_key}:{minute_window}"
+            
+            # Get current count
+            current_count = redis_client.client.get(redis_key)
+            if current_count is None:
+                current_count = 0
+            else:
+                current_count = int(current_count)
+            
+            # Check if limit exceeded
+            if current_count >= 30:
+                if redis_logger:
+                    redis_logger.warning(
+                        "Rate limit exceeded",
+                        component="rate_limiting",
+                        extra={
+                            "client_ip": client_ip[:8] + "***",
+                            "current_count": current_count,
+                            "limit": 30
+                        }
+                    )
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail="Rate limit exceeded. Please try again later."
+                )
+            
+            # Increment counter with TTL
+            redis_client.client.incr(redis_key)
+            redis_client.client.expire(redis_key, 60)  # Expire after 1 minute
+            
+        else:
+            # Fallback to in-memory rate limiting if Redis not available
+            rate_limit_key = f"chat:{client_ip}"
+            current_time = int(time.time() / 60)  # Current minute
 
-        # Simple in-memory rate limiting (30 requests per minute)
-        current_time = int(time.time() / 60)  # Current minute
+            if not hasattr(app.state, 'rate_limits'):
+                app.state.rate_limits = {}
 
-        # This is a simplified rate limiting - in production, use Redis
-        if not hasattr(app.state, 'rate_limits'):
-            app.state.rate_limits = {}
+            if rate_limit_key not in app.state.rate_limits:
+                app.state.rate_limits[rate_limit_key] = {}
 
-        if rate_limit_key not in app.state.rate_limits:
-            app.state.rate_limits[rate_limit_key] = {}
+            minute_requests = app.state.rate_limits[rate_limit_key].get(current_time, 0)
+            if minute_requests >= 30:
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail="Rate limit exceeded. Please try again later."
+                )
 
-        minute_requests = app.state.rate_limits[rate_limit_key].get(current_time, 0)
-        if minute_requests >= 30:
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="Rate limit exceeded. Please try again later."
-            )
+            # Increment counter
+            app.state.rate_limits[rate_limit_key][current_time] = minute_requests + 1
 
-        # Increment counter
-        app.state.rate_limits[rate_limit_key][current_time] = minute_requests + 1
+            # Clean old entries (keep only last 2 minutes)
+            for key in list(app.state.rate_limits[rate_limit_key].keys()):
+                if key < current_time - 1:
+                    del app.state.rate_limits[rate_limit_key][key]
 
-        # Clean old entries (keep only last 2 minutes)
-        for key in list(app.state.rate_limits[rate_limit_key].keys()):
-            if key < current_time - 1:
-                del app.state.rate_limits[rate_limit_key][key]
-
+    except HTTPException:
+        # Re-raise HTTP exceptions (rate limit exceeded)
+        raise
     except Exception as e:
         # If rate limiting fails, log but don't block the request
         logger.warning(f"Rate limiting error: {e}")
+        if redis_logger:
+            redis_logger.error(
+                "Rate limiting system error",
+                component="rate_limiting",
+                extra={"error": str(e)}
+            )
 
     try:
         # Use sanitized data from security middleware if available
@@ -327,17 +552,57 @@ async def chat_endpoint(request: ChatRequest, http_request: Request) -> ChatResp
                 detail="Router agent not available"
             )
 
-        # Create conversation context with sanitized data
-        context = ConversationContext(
-            conversation_id=conversation_id,
-            user_id=user_id,
-            message_history=[
-                Message(
-                    content=message_content,
-                    sender="user"
+        # Retrieve existing conversation context from Redis or create new one
+        context = None
+        if redis_client:
+            try:
+                context = redis_client.retrieve_conversation(conversation_id)
+                if context:
+                    # Add new user message to existing conversation
+                    user_message = Message(
+                        content=message_content,
+                        sender="user"
+                    )
+                    context.message_history.append(user_message)
+                    logger.info(f"Retrieved existing conversation {conversation_id} with {len(context.message_history)} messages")
+                else:
+                    # Create new conversation context
+                    context = ConversationContext(
+                        conversation_id=conversation_id,
+                        user_id=user_id,
+                        message_history=[
+                            Message(
+                                content=message_content,
+                                sender="user"
+                            )
+                        ]
+                    )
+                    logger.info(f"Created new conversation {conversation_id}")
+            except Exception as e:
+                logger.warning(f"Redis error retrieving conversation {conversation_id}: {e}")
+                # Fallback to new conversation
+                context = ConversationContext(
+                    conversation_id=conversation_id,
+                    user_id=user_id,
+                    message_history=[
+                        Message(
+                            content=message_content,
+                            sender="user"
+                        )
+                    ]
                 )
-            ]
-        )
+        else:
+            # No Redis available, create new conversation context
+            context = ConversationContext(
+                conversation_id=conversation_id,
+                user_id=user_id,
+                message_history=[
+                    Message(
+                        content=message_content,
+                        sender="user"
+                    )
+                ]
+            )
 
         # Log incoming request (with masked sensitive data)
         logger.info(
@@ -350,12 +615,44 @@ async def chat_endpoint(request: ChatRequest, http_request: Request) -> ChatResp
                 "sanitized": sanitized_data is not None
             }
         )
+        
+        # Redis logging for simplified tracking
+        if redis_logger:
+            redis_logger.info(
+                "Chat request received",
+                component="chat",
+                extra={
+                    "conversation_id": conversation_id[:8] + "***",
+                    "user_id": user_id[:4] + "***",
+                    "message_length": len(message_content),
+                    "has_existing_context": context is not None and len(context.message_history) > 1
+                }
+            )
 
         # Route message and get decision
         decision = await router_agent.route_message(message_content, context)
 
         # Process message with selected agent
         agent_response = await router_agent.process(message_content, context)
+
+        # Add agent response to conversation history
+        agent_message = Message(
+            content=agent_response.content,
+            sender="agent",
+            agent_type=agent_response.source_agent
+        )
+        context.message_history.append(agent_message)
+
+        # Store updated conversation back to Redis
+        if redis_client:
+            try:
+                store_success = redis_client.store_conversation(context)
+                if store_success:
+                    logger.debug(f"Stored updated conversation {conversation_id} with {len(context.message_history)} messages")
+                else:
+                    logger.warning(f"Failed to store conversation {conversation_id}")
+            except Exception as e:
+                logger.warning(f"Redis error storing conversation {conversation_id}: {e}")
 
         # Calculate total processing time
         total_time = time.time() - start_time
@@ -373,6 +670,19 @@ async def chat_endpoint(request: ChatRequest, http_request: Request) -> ChatResp
                 "execution_time": total_time
             }
         )
+        
+        # Redis logging for agent routing
+        if redis_logger:
+            redis_logger.info(
+                f"Message routed to {decision.selected_agent}",
+                component="routing",
+                extra={
+                    "selected_agent": decision.selected_agent,
+                    "confidence": decision.confidence,
+                    "execution_time": total_time,
+                    "conversation_id": conversation_id[:8] + "***"
+                }
+            )
 
         # Build response
         response = ChatResponse(

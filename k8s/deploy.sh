@@ -65,7 +65,7 @@ check_images() {
 update_secrets() {
     print_status "Updating secrets..."
     print_warning "Please update the secrets in k8s/secrets.yaml with your actual values:"
-    print_warning "  - OPENAI_API_KEY: Your OpenAI API key (base64 encoded)"
+    print_warning "  - GEMINI_API_KEY: Your Gemini API key (base64 encoded)"
     print_warning "  - SECRET_KEY: Your application secret key (base64 encoded)"
     print_warning "  - JWT_SECRET: Your JWT secret (base64 encoded)"
     print_warning "  - TLS certificate and key for HTTPS"
