@@ -43,7 +43,7 @@ COPY --chown=appuser:appuser pyproject.toml ./
 COPY --chown=appuser:appuser uv.lock ./
 
 # Copy embeddings
-COPY --chown=appuser:appuser /infinitepay_faiss_index ./infinitepay_faiss_index
+COPY --chown=appuser:appuser infinitepay_faiss_index ./infinitepay_faiss_index
 
 # Install dependencies including dev dependencies using uv
 RUN uv sync --all-extras
@@ -85,6 +85,9 @@ COPY pyproject.toml ./
 # Copy credentials file into production container
 COPY google-credentials.json /home/google-credentials.json
 ENV GOOGLE_APPLICATION_CREDENTIALS=/home/google-credentials.json
+
+# Copy FAISS index from builder stage
+COPY --from=builder /app/infinitepay_faiss_index ./infinitepay_faiss_index
 
 # Remove any build artifacts and cache directories
 RUN rm -rf .eggs *.egg-info __pycache__ .pytest_cache

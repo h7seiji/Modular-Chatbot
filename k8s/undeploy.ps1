@@ -106,7 +106,7 @@ function Remove-Resources {
     
     # Remove ConfigMaps and Secrets
     Write-Status "Removing ConfigMaps and Secrets..."
-    kubectl delete -f secrets.yaml --ignore-not-found=true 2>$null
+    # kubectl delete -f secrets.yaml --ignore-not-found=true 2>$null
     kubectl delete -f configmap.yaml --ignore-not-found=true 2>$null
     
     # Wait for pods to terminate
@@ -150,7 +150,8 @@ function Test-Removal {
         if ($finalCheck) {
             Write-Warning "Namespace $Namespace still exists. You may need to manually clean up remaining resources."
             Write-Host "Run: kubectl get all -n $Namespace"
-        } else {
+        }
+        else {
             Write-Status "All resources have been successfully removed!"
         }
     }

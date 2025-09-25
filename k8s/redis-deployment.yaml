@@ -71,28 +71,10 @@ spec:
             - ALL
       volumes:
       - name: redis-data
-        persistentVolumeClaim:
-          claimName: redis-pvc
+        emptyDir: {}
       - name: redis-config
         configMap:
           name: redis-config
       securityContext:
         fsGroup: 999
       restartPolicy: Always
-
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: redis-pvc
-  namespace: modular-chatbot
-  labels:
-    app: modular-chatbot
-    component: redis
-spec:
-  accessModes:
-  - ReadWriteOnce
-  resources:
-    requests:
-      storage: 1Gi
-  storageClassName: standard  # Adjust based on your cluster's storage classes

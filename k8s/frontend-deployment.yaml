@@ -21,6 +21,7 @@ spec:
       containers:
       - name: frontend
         image: modular-chatbot-frontend:latest  # Replace with your actual image
+        imagePullPolicy: Never
         ports:
         - containerPort: 80
           name: http

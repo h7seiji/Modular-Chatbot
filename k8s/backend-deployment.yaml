@@ -21,6 +21,7 @@ spec:
       containers:
         - name: backend
           image: modular-chatbot-backend:latest # Replace with your actual image
+          imagePullPolicy: Never
           ports:
             - containerPort: 8000
               name: http
@@ -112,6 +113,18 @@ spec:
                 secretKeyRef:
                   name: modular-chatbot-secrets
                   key: REDIS_PASSWORD
+            - name: GOOGLE_CLOUD_PROJECT
+              valueFrom:
+                secretKeyRef:
+                  name: modular-chatbot-secrets
+                  key: GOOGLE_CLOUD_PROJECT
+            - name: GOOGLE_CLOUD_REGION
+              valueFrom:
+                secretKeyRef:
+                  name: modular-chatbot-secrets
+                  key: GOOGLE_CLOUD_REGION
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: "/home/google-credentials.json"
           livenessProbe:
             httpGet:
               path: /health

@@ -1,6 +1,33 @@
 # Makefile for Modular Chatbot Docker operations
 
-.PHONY: help build up down logs clean dev prod test health
+.PHONY: help build up down logs clean dev prod test health deploy deploy-no-pf undeploy pf k8s-status k8s-logs
+
+# Detect operating system
+ifeq ($(OS),Windows_NT)
+    SHELL_CMD := powershell
+    SCRIPT_EXT := ps1
+    SHELL_FLAG := -File
+    ifeq ($(shell echo %PROCESSOR_ARCHITECTURE%),AMD64)
+        ARCH := x64
+    endif
+    ifeq ($(shell echo %PROCESSOR_ARCHITECTURE%),x86)
+        ARCH := x86
+    endif
+else
+    UNAME_S := $(shell uname -s)
+    ifeq ($(UNAME_S),Linux)
+        SHELL_CMD := bash
+        SCRIPT_EXT := sh
+        SHELL_FLAG :=
+        ARCH := $(shell uname -m)
+    endif
+    ifeq ($(UNAME_S),Darwin)
+        SHELL_CMD := bash
+        SCRIPT_EXT := sh
+        SHELL_FLAG :=
+        ARCH := $(shell uname -m)
+    endif
+endif
 
 # Default target
 help:
@@ -15,12 +42,18 @@ help:
 	@echo "  health    - Check health of all services"
 	@echo "  backend   - Start only backend services (backend + redis)"
 	@echo "  frontend  - Start only frontend service"
+	@echo ""
+	@echo "Kubernetes commands:"
+	@echo "  deploy    - Deploy to Kubernetes with automatic port forwarding"
+	@echo "  deploy-no-pf - Deploy to Kubernetes without port forwarding"
+	@echo "  undeploy  - Remove Kubernetes deployment"
+	@echo "  pf        - Start port forwarding only"
+	@echo "  k8s-status- Check Kubernetes deployment status"
+	@echo "  k8s-logs  - Show Kubernetes pod logs"
 
 # Build all images
 build:
 	docker-compose build
-
-# Start services in production mode
 up:
 	docker-compose up -d
 
@@ -81,3 +114,41 @@ shell-%:
 install:
 	docker-compose exec backend uv pip install --system -e .
 	docker-compose exec frontend npm install
+
+# Kubernetes deployment with automatic port forwarding
+deploy:
+	@echo "Deploying to Kubernetes with automatic port forwarding..."
+	cd k8s && $(SHELL_CMD) $(SHELL_FLAG) deploy.$(SCRIPT_EXT)
+
+# Kubernetes deployment without port forwarding
+deploy-no-pf:
+	@echo "Deploying to Kubernetes without port forwarding..."
+ifeq ($(SHELL_CMD),powershell)
+	cd k8s && $(SHELL_CMD) $(SHELL_FLAG) deploy.$(SCRIPT_EXT) -NoPortForward
+else
+	cd k8s && $(SHELL_CMD) $(SHELL_FLAG) deploy.$(SCRIPT_EXT) --no-port-forward
+endif
+
+# Remove Kubernetes deployment
+undeploy:
+	@echo "Removing Kubernetes deployment..."
+	cd k8s && $(SHELL_CMD) $(SHELL_FLAG) undeploy.$(SCRIPT_EXT)
+
+# Start port forwarding only
+pf:
+	@echo "Starting port forwarding..."
+	cd k8s && $(SHELL_CMD) $(SHELL_FLAG) port-forward.$(SCRIPT_EXT)
+
+# Check Kubernetes deployment status
+k8s-status:
+	@echo "Checking Kubernetes deployment status..."
+	cd k8s && $(SHELL_CMD) $(SHELL_FLAG) check-deployment.$(SCRIPT_EXT)
+
+# Show Kubernetes pod logs
+k8s-logs:
+	@echo "Showing Kubernetes pod logs..."
+ifeq ($(SHELL_CMD),powershell)
+	cd k8s && $(SHELL_CMD) -Command "kubectl get pods -n modular-chatbot -o name | ForEach-Object { kubectl logs -f $$_ -n modular-chatbot }"
+else
+	cd k8s && $(SHELL_CMD) -c "kubectl get pods -n modular-chatbot -o name | xargs -I {} kubectl logs -f {} -n modular-chatbot"
+endif

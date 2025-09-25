@@ -34,7 +34,7 @@ class MathAgent(SpecializedAgent):
 
         # Configure the model
         self.model = genai.GenerativeModel(
-            model_name="gemini-1.5-flash",  # Fast and efficient model
+            model_name="gemini-2.0-flash",  # Fast and efficient model
             generation_config={
                 "temperature": 0.1,  # Low temperature for consistent math results
                 "top_p": 0.8,
@@ -104,7 +104,7 @@ Be precise and show your work. If the question is not mathematical, politely red
                 source_agent="MathAgent",
                 execution_time=execution_time,
                 metadata={
-                    "model": "gemini-1.5-flash",
+                    "model": "gemini-2.0-flash",
                     "query_type": "mathematical",
                     "temperature": 0.1
                 }
@@ -139,6 +139,6 @@ Be precise and show your work. If the question is not mathematical, politely red
                 metadata={
                     "error": True,
                     "error_type": type(e).__name__,
-                    "model": "gemini-1.5-flash"
+                    "model": "gemini-2.0-flash"
                 }
             )

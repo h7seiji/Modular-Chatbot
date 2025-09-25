@@ -22,6 +22,69 @@ A modern, production-ready chatbot system with intelligent agent routing, compre
 
 **Note**: The system uses Gemini as the AI provider. If the API key is not provided or invalid, the system falls back to mock agents for testing.
 
+#### Google Cloud Credentials (Required for Vertex AI)
+
+The KnowledgeAgent uses Google Cloud Vertex AI for embeddings and chat completions. You need to set up Google Cloud credentials using a service account JSON file:
+
+1. **Create a Google Cloud Project**:
+   - Go to [Google Cloud Console](https://console.cloud.google.com/)
+   - Create a new project or select an existing one
+   - Enable billing for your project
+
+2. **Enable Required APIs**:
+   - Enable the **Vertex AI API**:
+
+     ```bash
+     gcloud services enable aiplatform.googleapis.com
+     ```
+
+   - Enable the **Cloud Resource Manager API**:
+
+     ```bash
+     gcloud services enable cloudresourcemanager.googleapis.com
+     ```
+
+3. **Create Service Account and Download Credentials**:
+   - Create a service account:
+
+     ```bash
+     gcloud iam service-accounts create vertex-ai-user \
+       --display-name="Vertex AI User"
+     ```
+
+   - Grant necessary roles:
+
+     ```bash
+     gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
+       --member="serviceAccount:vertex-ai-user@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
+       --role="roles/ai.platform.user"
+     
+     gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
+       --member="serviceAccount:vertex-ai-user@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
+       --role="roles/storage.objectViewer"
+     ```
+
+   - Create and download the service account key:
+
+     ```bash
+     gcloud iam service-accounts keys create google-credentials.json \
+       --iam-account="vertex-ai-user@YOUR_PROJECT_ID.iam.gserviceaccount.com"
+     ```
+
+   - **Important**: Move the downloaded JSON file to the correct location:
+
+     ```bash
+     # For local development with Docker
+     mv google-credentials.json backend/google-credentials.json
+     
+     # For Kubernetes deployment
+     mv google-credentials.json backend/google-credentials.json
+     ```
+
+   **Note**: The `GOOGLE_APPLICATION_CREDENTIALS` environment variable is **not** needed in the `.env` file. The system automatically reads the `backend/google-credentials.json` file and extracts the project ID. For Kubernetes deployments, the credentials are automatically packaged into the deployment secrets.
+
+**Important**: Without proper credentials in `backend/google-credentials.json`, the KnowledgeAgent will fail to initialize and the system will fall back to mock behavior.
+
 ### Quick Start
 
 1. **Clone and setup environment**:
@@ -30,7 +93,7 @@ A modern, production-ready chatbot system with intelligent agent routing, compre
    git clone <repository>
    cd modular-chatbot
    cp .env.example .env
-   # Edit .env with your Gemini API key
+   # Edit .env with your Gemini API key and Google Cloud credentials
    ```
 
 2. **Start development environment**:
@@ -46,6 +109,8 @@ A modern, production-ready chatbot system with intelligent agent routing, compre
 
 ### Available Commands
 
+#### Docker Compose Commands
+
 ```bash
 make help          # Show all available commands
 make dev           # Start development environment with hot reloading
@@ -55,6 +120,17 @@ make logs          # View logs from all services
 make health        # Check service health
 make clean         # Clean up containers and images
 make test          # Run comprehensive test suite
+```
+
+#### Kubernetes Commands
+
+```bash
+make deploy        # Deploy to Kubernetes with automatic port forwarding
+make deploy-no-pf  # Deploy to Kubernetes without port forwarding
+make undeploy      # Remove Kubernetes deployment
+make pf            # Start port forwarding only
+make k8s-status    # Check Kubernetes deployment status
+make k8s-logs      # Show Kubernetes pod logs
 ```
 
 ## How to Run on Kubernetes
@@ -78,23 +154,24 @@ make test          # Run comprehensive test suite
 2. **Deploy to Kubernetes**:
 
    ```bash
-   # Linux/macOS
-   ./deploy.sh
+   # Deploy with automatic port forwarding (recommended)
+   make deploy
    
-   # Windows PowerShell
-   ./deploy.ps1
+   # Deploy without port forwarding
+   make deploy-no-pf
    
-   # Or manually
-   kubectl apply -f namespace.yaml
-   kubectl apply -f configmap.yaml
-   kubectl apply -f secrets.yaml
-   kubectl apply -f redis-deployment.yaml
-   kubectl apply -f backend-deployment.yaml
-   kubectl apply -f frontend-deployment.yaml
-   kubectl apply -f services.yaml
-   kubectl apply -f ingress.yaml
-   kubectl apply -f hpa.yaml
+   # Alternative: Manual deployment scripts
+   # Linux/macOS: ./deploy.sh
+   # Windows PowerShell: ./deploy.ps1
    ```
+
+   **Note**: The `make deploy` command automatically:
+   - Builds and deploys all Kubernetes resources
+   - Creates secrets from your `.env` file and `google-credentials.json`
+   - Starts automatic port forwarding for local access
+   - Provides immediate access to the application at:
+     - Frontend: <http://localhost:3000>
+     - Backend: <http://localhost:8000>
 
 3. **Verify deployment**:
 

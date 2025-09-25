@@ -14,6 +14,28 @@ NC='\033[0m' # No Color
 # Configuration
 NAMESPACE="modular-chatbot"
 KUBECTL_TIMEOUT="300s"
+NO_PORT_FORWARD=false
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --no-port-forward)
+            NO_PORT_FORWARD=true
+            shift
+            ;;
+        -h|--help)
+            echo "Usage: $0 [--no-port-forward]"
+            echo "  --no-port-forward    Skip automatic port forwarding"
+            echo "  -h, --help          Show this help message"
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Use --help for usage information"
+            exit 1
+            ;;
+    esac
+done
 
 # Function to print colored output
 print_status() {
@@ -61,35 +83,58 @@ check_images() {
     fi
 }
 
-# Function to update secrets
-update_secrets() {
-    print_status "Updating secrets..."
-    print_warning "Please update the secrets in k8s/secrets.yaml with your actual values:"
-    print_warning "  - GEMINI_API_KEY: Your Gemini API key (base64 encoded)"
-    print_warning "  - SECRET_KEY: Your application secret key (base64 encoded)"
-    print_warning "  - JWT_SECRET: Your JWT secret (base64 encoded)"
-    print_warning "  - TLS certificate and key for HTTPS"
+# Function to create secrets from .env file
+create_secrets_from_env() {
+    print_status "Creating secrets from .env file..."
     
-    read -p "Have you updated the secrets? (y/N): " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        print_error "Please update the secrets first"
+    # Check if .env file exists
+    if [[ ! -f "../.env" ]]; then
+        print_error ".env file not found in the project root"
+        echo "Please create a .env file from .env.example with your actual values"
         exit 1
     fi
+    
+    # Check if .env file has content
+    if [[ ! -s "../.env" ]]; then
+        print_error ".env file is empty"
+        echo "Please fill in your environment variables in the .env file"
+        exit 1
+    fi
+    
+    # Create namespace first (required for secret creation)
+    print_status "Creating namespace..."
+    kubectl apply -f namespace.yaml
+    
+    # Create secret from .env file
+    if ! kubectl create secret generic modular-chatbot-secrets \
+      --from-env-file="../.env" \
+      --namespace=${NAMESPACE} \
+      --dry-run=client -o yaml | kubectl apply -f -; then
+        print_error "Failed to create secrets from .env file"
+        echo "Please check your .env file format and ensure all required variables are set"
+        exit 1
+    fi
+    
+    print_status "Secrets created successfully from .env file"
+    
+    # Show created secrets for verification
+    print_status "Verifying created secrets:"
+    kubectl get secret modular-chatbot-secrets -n ${NAMESPACE} --show-labels
 }
 
 # Function to deploy resources
 deploy_resources() {
     print_status "Deploying Kubernetes resources..."
     
-    # Create namespace
-    print_status "Creating namespace..."
-    kubectl apply -f namespace.yaml
+    # Namespace is already created by create_secrets_from_env function
+    print_status "Namespace already created"
     
-    # Deploy ConfigMaps and Secrets
-    print_status "Deploying ConfigMaps and Secrets..."
+    # Deploy ConfigMaps
+    print_status "Deploying ConfigMaps..."
     kubectl apply -f configmap.yaml
-    kubectl apply -f secrets.yaml
+    
+    # Secrets are already created by create_secrets_from_env function
+    print_status "Secrets already deployed from .env file"
     
     # Deploy RBAC
     print_status "Deploying RBAC resources..."
@@ -182,6 +227,26 @@ show_access_info() {
     print_status "To scale deployments:"
     echo "  kubectl scale deployment backend-deployment --replicas=3 -n ${NAMESPACE}"
     echo "  kubectl scale deployment frontend-deployment --replicas=3 -n ${NAMESPACE}"
+    echo
+    print_status "=== AUTOMATED PORT FORWARDING ==="
+    echo
+    print_status "For local testing, use the automated port forwarding script:"
+    echo "  Bash:      ./port-forward.sh"
+    echo "  PowerShell: .\\port-forward.ps1"
+    echo
+    print_status "Port forwarding will automatically set up:"
+    echo "  Frontend:  http://localhost:3000"
+    echo "  Backend:   http://localhost:8000"
+    echo "  Redis:     localhost:6379"
+    echo
+    print_status "To stop port forwarding:"
+    echo "  Bash:      ./port-forward.sh -s"
+    echo "  PowerShell: .\\port-forward.ps1 -Stop"
+    echo
+    print_status "Manual port forwarding (if needed):"
+    echo "  kubectl port-forward service/frontend-service 3000:80 -n ${NAMESPACE}"
+    echo "  kubectl port-forward service/backend-service 8000:8000 -n ${NAMESPACE}"
+    echo "  kubectl port-forward service/redis-service 6379:6379 -n ${NAMESPACE}"
 }
 
 # Main deployment process
@@ -191,7 +256,7 @@ main() {
     # Pre-deployment checks
     check_kubectl
     check_images
-    update_secrets
+    create_secrets_from_env
     
     # Deploy resources
     deploy_resources
@@ -201,6 +266,26 @@ main() {
     
     # Show access information
     show_access_info
+    
+    # Start port forwarding automatically unless --no-port-forward is specified
+    if [ "$NO_PORT_FORWARD" = "false" ]; then
+        print_status "Starting automatic port forwarding..."
+        if command -v gnome-terminal &> /dev/null; then
+            gnome-terminal -- bash -c "./port-forward.sh; exec bash"
+        elif command -v xterm &> /dev/null; then
+            xterm -e "./port-forward.sh" &
+        elif command -v osascript &> /dev/null; then
+            # macOS
+            osascript -e 'tell app "Terminal" to do script "./port-forward.sh"'
+        else
+            # Fallback: run in background
+            print_status "Starting port forwarding in background..."
+            ./port-forward.sh &
+            print_status "Port forwarding started in background. Use './port-forward.sh -s' to stop."
+        fi
+    else
+        print_status "Port forwarding skipped as requested."
+    fi
     
     print_status "Deployment script completed successfully!"
 }

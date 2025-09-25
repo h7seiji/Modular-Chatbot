@@ -6,7 +6,6 @@ A modern Python backend for the modular chatbot system featuring RouterAgent and
 
 - **RouterAgent**: Intelligent query routing to specialized agents
 - **KnowledgeAgent**: RAG-based responses using InfinitePay help content with web scraping and vector embeddings (Gemini)
-- **MathAgent**: Mathematical expression solving with LLM interpretation (Gemini)
 - **Modern Tooling**: Built with uv, ruff, and ty for enhanced development experience
 - **Comprehensive Testing**: Unit and integration tests with coverage reporting
 - **Security**: Input sanitization and prompt injection prevention
@@ -18,36 +17,92 @@ A modern Python backend for the modular chatbot system featuring RouterAgent and
 - [uv](https://docs.astral.sh/uv/getting-started/installation/) - Python package manager
 - Redis (for conversation storage)
 - Google Gemini API key (for KnowledgeAgent and MathAgent)
+- Google Cloud credentials (for Vertex AI services)
+
+## Google Cloud Setup
+
+The KnowledgeAgent uses Google Cloud Vertex AI for embeddings and chat completions. Follow these steps to set up Google Cloud credentials:
+
+### 1. Create a Google Cloud Project
+
+- Go to [Google Cloud Console](https://console.cloud.google.com/)
+- Create a new project or select an existing one
+- Enable billing for your project
+
+### 2. Enable Required APIs
+
+Enable the **Vertex AI API** and **Cloud Resource Manager API**:
+
+```bash
+gcloud services enable aiplatform.googleapis.com
+gcloud services enable cloudresourcemanager.googleapis.com
+```
+
+### 3. Set Up Authentication
+
+**Option A: Service Account (Recommended for Production)**
+
+1. Create a service account:
+   ```bash
+   gcloud iam service-accounts create vertex-ai-user \
+     --display-name="Vertex AI User"
+   ```
+
+2. Grant necessary roles:
+   ```bash
+   gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
+     --member="serviceAccount:vertex-ai-user@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
+     --role="roles/ai.platform.user"
+   
+   gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
+     --member="serviceAccount:vertex-ai-user@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
+     --role="roles/storage.objectViewer"
+   ```
+
+3. Create and download the service account key:
+   ```bash
+   gcloud iam service-accounts keys create vertex-ai-key.json \
+     --iam-account="vertex-ai-user@YOUR_PROJECT_ID.iam.gserviceaccount.com"
+   ```
+
+4. Set the environment variable:
+   ```bash
+   export GOOGLE_APPLICATION_CREDENTIALS="$(pwd)/vertex-ai-key.json"
+   ```
+
+**Option B: User Account (For Development)**
+
+1. Install the Google Cloud CLI from [https://cloud.google.com/sdk/docs/install](https://cloud.google.com/sdk/docs/install)
+
+2. Authenticate:
+   ```bash
+   gcloud auth login
+   gcloud config set project YOUR_PROJECT_ID
+   ```
+
+3. Set up application default credentials:
+   ```bash
+   gcloud auth application-default login
+   ```
+
+### 4. Environment Variables
+
+Add these variables to your `.env` file:
+
+```env
+# Google Cloud Project ID
+GOOGLE_CLOUD_PROJECT=your-project-id
+
+# Google Cloud Region (must match Vertex AI region)
+GOOGLE_CLOUD_REGION=us-central1
+
+# Path to service account key file (if using service account)
+GOOGLE_APPLICATION_CREDENTIALS=/path/to/vertex-ai-key.json
+```
+
+**Note**: Vertex AI is used by the KnowledgeAgent for embeddings and chat completions. Without proper credentials, the KnowledgeAgent will fail to initialize.
 
 ## Quick Start
-
-1. **Install uv** (if not already installed):
-   ```bash
-   # On macOS/Linux
-   curl -LsSf https://astral.sh/uv/install.sh | sh
-   
-   # On Windows
-   powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
-   ```
-
-2. **Set up the development environment**:
-   ```bash
-   # Run the setup script
-   python setup_venv.py
-   
-   # Or manually:
-   uv sync --all-extras
-   uv run pre-commit install
-   ```
-
-3. **Start the development server**:
-   ```bash
-   make run
-   # or
-   uv run uvicorn app.main:app --reload
-   ```
-
-## Development Workflow
 
 ### Available Commands
 

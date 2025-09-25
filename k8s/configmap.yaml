@@ -16,13 +16,12 @@ data:
   REDIS_URL: "redis://redis-service:6379/0"
   
   # Frontend Configuration
-  REACT_APP_API_URL: "https://api.chatbot.example.com"
+  REACT_APP_API_URL: "/api"
   REACT_APP_ENVIRONMENT: "production"
   
   # Rate Limiting
   RATE_LIMIT_PER_MINUTE: "60"
   RATE_LIMIT_BURST: "10"
-  
   # Agent Configuration
   MATH_AGENT_TIMEOUT: "30"
   KNOWLEDGE_AGENT_TIMEOUT: "45"
@@ -111,7 +110,7 @@ data:
         gzip on;
         gzip_vary on;
         gzip_min_length 1024;
-        gzip_proxied expired no-cache no-store private must-revalidate auth;
+        gzip_proxied expired no-cache no-store private auth;
         gzip_types text/plain text/css text/xml text/javascript application/javascript application/xml+rss application/json;
 
         # Security headers
