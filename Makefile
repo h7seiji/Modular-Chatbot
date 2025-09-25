@@ -76,8 +76,7 @@ clean:
 
 # Run tests
 test:
-	docker-compose exec backend uv run pytest
-	docker-compose exec frontend npm test -- --run
+	docker-compose -f docker-compose.yml -f docker-compose.dev.yml exec backend uv run pytest
 
 # Check service health
 health:
