@@ -1,0 +1,46 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: backend-pdb
+  namespace: modular-chatbot
+  labels:
+    app: modular-chatbot
+    component: backend
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: modular-chatbot
+      component: backend
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: frontend-pdb
+  namespace: modular-chatbot
+  labels:
+    app: modular-chatbot
+    component: frontend
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: modular-chatbot
+      component: frontend
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: redis-pdb
+  namespace: modular-chatbot
+  labels:
+    app: modular-chatbot
+    component: redis
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: modular-chatbot
+      component: redis

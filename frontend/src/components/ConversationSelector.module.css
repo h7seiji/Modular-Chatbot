@@ -1,0 +1,126 @@
+.conversationSelector {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: #f5f5f5;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid #e0e0e0;
+  background-color: #ffffff;
+}
+
+.header h3 {
+  margin: 0;
+  color: #333;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.newConversationButton {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background-color: #007bff;
+  color: white;
+  font-size: 20px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
+}
+
+.newConversationButton:hover {
+  background-color: #0056b3;
+}
+
+.conversationList {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: #666;
+  text-align: center;
+}
+
+.emptyState p {
+  margin: 4px 0;
+  font-size: 14px;
+}
+
+.conversationItem {
+  padding: 12px 16px;
+  border-bottom: 1px solid #e8e8e8;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  background-color: #ffffff;
+}
+
+.conversationItem:hover {
+  background-color: #f8f9fa;
+}
+
+.conversationItem.active {
+  background-color: #e3f2fd;
+  border-left: 4px solid #007bff;
+}
+
+.conversationPreview {
+  font-size: 14px;
+  color: #333;
+  margin-bottom: 4px;
+  line-height: 1.4;
+  font-weight: 500;
+}
+
+.conversationMeta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: #666;
+}
+
+.timestamp {
+  font-size: 11px;
+}
+
+.messageCount {
+  font-size: 11px;
+  background-color: #e9ecef;
+  padding: 2px 6px;
+  border-radius: 10px;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .conversationList {
+    max-height: 150px;
+  }
+  
+  .conversationItem {
+    padding: 8px 12px;
+  }
+  
+  .conversationPreview {
+    font-size: 13px;
+  }
+  
+  .conversationMeta {
+    font-size: 11px;
+  }
+}
