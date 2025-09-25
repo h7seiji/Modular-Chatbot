@@ -150,11 +150,16 @@ class RedisClient:
             # Execute pipeline
             results = pipe.execute()
             
-            if all(results):
+            # Check results - SADD returns 0 if member already exists, which is not an error
+            set_success = results[0]  # SET operation
+            sadd_result = results[1]   # SADD operation (0 is OK if member exists)
+            expire_success = results[2]  # EXPIRE operation
+            
+            if set_success and (sadd_result >= 0) and expire_success:
                 logger.info(f"Stored conversation {conversation.conversation_id} for user {conversation.user_id}")
                 return True
             else:
-                logger.error(f"Failed to store conversation {conversation.conversation_id}")
+                logger.error(f"Failed to store conversation {conversation.conversation_id}. Results: {results}")
                 return False
                 
         except (ConnectionError, TimeoutError, RedisError) as e:
@@ -201,7 +206,7 @@ class RedisClient:
                 conversation_id=data["conversation_id"],
                 user_id=data["user_id"],
                 timestamp=datetime.fromisoformat(data["timestamp"]),
-                message_history=messages,
+                message_history=messages
             )
             
             logger.debug(f"Retrieved conversation {conversation_id} with {len(messages)} messages")
@@ -248,7 +253,7 @@ class RedisClient:
             logger.error(f"Error adding message to conversation {conversation_id}: {e}")
             return False
     
-    def get_user_conversations(self, user_id: str) -> list[str]:
+    def get_user_conversations(self, user_id: str) -> list:
         """
         Get list of conversation IDs for a user.
         
@@ -262,11 +267,11 @@ class RedisClient:
             user_conversations_key = self._get_user_conversations_key(user_id)
             conversation_ids = self.client.smembers(user_conversations_key)
             
-            logger.debug(f"Found {len(conversation_ids)} conversations for user {user_id}")
+            logger.debug(f"Retrieved {len(conversation_ids)} conversations for user {user_id}")
             return list(conversation_ids)
             
         except (ConnectionError, TimeoutError, RedisError) as e:
-            logger.error(f"Redis error getting conversations for user {user_id}: {e}")
+            logger.error(f"Redis error getting user conversations for {user_id}: {e}")
             return []
     
     def delete_conversation(self, conversation_id: str, user_id: str) -> bool:
@@ -286,16 +291,21 @@ class RedisClient:
             
             # Use pipeline for atomic operations
             pipe = self.client.pipeline()
+            
+            # Delete conversation data
             pipe.delete(conversation_key)
+            
+            # Remove from user's conversation list
             pipe.srem(user_conversations_key, conversation_id)
             
+            # Execute pipeline
             results = pipe.execute()
             
-            if results[0] > 0:  # At least one key was deleted
+            if all(results):
                 logger.info(f"Deleted conversation {conversation_id} for user {user_id}")
                 return True
             else:
-                logger.warning(f"Conversation {conversation_id} not found for deletion")
+                logger.error(f"Failed to delete conversation {conversation_id}")
                 return False
                 
         except (ConnectionError, TimeoutError, RedisError) as e:
@@ -318,7 +328,7 @@ class RedisClient:
             result = self.client.expire(conversation_key, ttl)
             
             if result:
-                logger.debug(f"Set TTL {ttl}s for conversation {conversation_id}")
+                logger.debug(f"Set TTL for conversation {conversation_id} to {ttl} seconds")
                 return True
             else:
                 logger.warning(f"Failed to set TTL for conversation {conversation_id}")
@@ -342,20 +352,18 @@ class RedisClient:
             conversation_key = self._get_conversation_key(conversation_id)
             ttl = self.client.ttl(conversation_key)
             
-            if ttl == -2:  # Key doesn't exist
-                logger.debug(f"Conversation {conversation_id} not found")
-                return None
-            elif ttl == -1:  # Key exists but no TTL set
-                logger.debug(f"Conversation {conversation_id} has no TTL")
-                return None
-            else:
+            if ttl >= 0:
+                logger.debug(f"Conversation {conversation_id} has {ttl} seconds remaining")
                 return ttl
+            else:
+                logger.debug(f"Conversation {conversation_id} has no TTL set or not found")
+                return None
                 
         except (ConnectionError, TimeoutError, RedisError) as e:
             logger.error(f"Redis error getting TTL for conversation {conversation_id}: {e}")
             return None
     
-    def close(self) -> None:
+    def close(self):
         """Close Redis connection pool."""
         try:
             self.pool.disconnect()
