@@ -1,10 +1,12 @@
 """
 Unit tests for MathAgent simple expression processing.
 """
-import pytest
+from datetime import datetime
 import os
 from unittest.mock import Mock, patch
-from datetime import datetime
+
+import pytest
+
 from agents.gemini_math_agent import MathAgent
 from models.core import ConversationContext, Message
 
@@ -35,7 +37,7 @@ def conversation_context():
 
 class TestSimpleExpressionDetection:
     """Test simple mathematical expression detection."""
-    
+
     def test_can_handle_basic_arithmetic(self, math_agent):
         """Test detection of basic arithmetic expressions."""
         test_cases = [
@@ -45,11 +47,11 @@ class TestSimpleExpressionDetection:
             ("Solve 70 + 12", 1.0),
             ("What's (42 * 2) / 6?", 1.0),
         ]
-        
+
         for message, expected_min_confidence in test_cases:
             confidence = math_agent.can_handle(message)
             assert confidence >= expected_min_confidence, f"Failed for: {message}"
-    
+
     def test_can_handle_simple_expressions(self, math_agent):
         """Test detection of simple mathematical expressions."""
         test_cases = [
@@ -62,7 +64,7 @@ class TestSimpleExpressionDetection:
         for message, expected_min_confidence in test_cases:
             confidence = math_agent.can_handle(message)
             assert confidence >= expected_min_confidence, f"Failed for: {message}"
-    
+
     def test_can_handle_keyword_based(self, math_agent):
         """Test detection based on mathematical keywords."""
         test_cases = [
@@ -74,7 +76,7 @@ class TestSimpleExpressionDetection:
         for message, expected_min_confidence in test_cases:
             confidence = math_agent.can_handle(message)
             assert confidence == expected_min_confidence, f"Failed for: {message}"
-    
+
     def test_can_handle_non_mathematical(self, math_agent):
         """Test rejection of non-mathematical messages."""
         test_cases = [
@@ -83,7 +85,7 @@ class TestSimpleExpressionDetection:
             "Tell me about InfinitePay services",
             "I need help with my account",
         ]
-        
+
         for message in test_cases:
             confidence = math_agent.can_handle(message)
             assert confidence < 0.5, f"Should reject: {message}"
@@ -91,7 +93,7 @@ class TestSimpleExpressionDetection:
 
 class TestSimpleExpressionProcessing:
     """Test simple expression processing."""
-    
+
     @patch('agents.gemini_math_agent.genai')
     @pytest.mark.asyncio
     async def test_process_simple_addition(self, mock_genai, math_agent, conversation_context):
@@ -99,18 +101,18 @@ class TestSimpleExpressionProcessing:
         # Mock the Gemini response
         mock_response = Mock()
         mock_response.text = "Step 1: 5 + 3 = 8\nFinal answer: 8"
-        
+
         mock_model = Mock()
         mock_model.generate_content.return_value = mock_response
         math_agent.model = mock_model
-        
+
         response = await math_agent.process("What is 5 + 3?", conversation_context)
-        
+
         assert response.source_agent == "MathAgent"
         assert "8" in response.content
         assert response.execution_time > 0
-        assert response.metadata["model"] == "gemini-1.5-flash"
-    
+        assert response.metadata["model"] == "gemini-2.0-flash"
+
     @patch('agents.gemini_math_agent.genai')
     @pytest.mark.asyncio
     async def test_process_simple_multiplication(self, mock_genai, math_agent, conversation_context):
@@ -118,18 +120,18 @@ class TestSimpleExpressionProcessing:
         # Mock the Gemini response
         mock_response = Mock()
         mock_response.text = "Step 1: 65 × 3.11 = 202.15\nFinal answer: 202.15"
-        
+
         mock_model = Mock()
         mock_model.generate_content.return_value = mock_response
         math_agent.model = mock_model
-        
+
         response = await math_agent.process("How much is 65 x 3.11?", conversation_context)
-        
+
         assert response.source_agent == "MathAgent"
         assert "202.15" in response.content
         assert response.execution_time > 0
-        assert response.metadata["model"] == "gemini-1.5-flash"
-    
+        assert response.metadata["model"] == "gemini-2.0-flash"
+
     @patch('agents.gemini_math_agent.genai')
     @pytest.mark.asyncio
     async def test_process_simple_division(self, mock_genai, math_agent, conversation_context):
@@ -137,17 +139,17 @@ class TestSimpleExpressionProcessing:
         # Mock the Gemini response
         mock_response = Mock()
         mock_response.text = "Step 1: 42 ÷ 6 = 7\nFinal answer: 7"
-        
+
         mock_model = Mock()
         mock_model.generate_content.return_value = mock_response
         math_agent.model = mock_model
-        
+
         response = await math_agent.process("What is 42 / 6?", conversation_context)
-        
+
         assert response.source_agent == "MathAgent"
         assert "7" in response.content
         assert response.execution_time > 0
-        assert response.metadata["model"] == "gemini-1.5-flash"
+        assert response.metadata["model"] == "gemini-2.0-flash"
 
 
 if __name__ == "__main__":
