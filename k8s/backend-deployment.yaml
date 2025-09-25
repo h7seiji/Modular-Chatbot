@@ -118,11 +118,6 @@ spec:
                 secretKeyRef:
                   name: modular-chatbot-secrets
                   key: GOOGLE_CLOUD_PROJECT
-            - name: GOOGLE_CLOUD_REGION
-              valueFrom:
-                secretKeyRef:
-                  name: modular-chatbot-secrets
-                  key: GOOGLE_CLOUD_REGION
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: "/home/google-credentials.json"
           livenessProbe:
