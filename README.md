@@ -96,13 +96,19 @@ The KnowledgeAgent uses Google Cloud Vertex AI for embeddings and chat completio
    # Edit .env with your Gemini API key and Google Cloud credentials
    ```
 
-2. **Start development environment**:
+2. **Build all images**:
+
+    ```bash
+    make build
+    ```
+
+3. **Start development environment**:
 
    ```bash
    make dev
    ```
 
-3. **Access the application**:
+4. **Access the application**:
    - **Frontend**: <http://localhost:3000>
    - **Backend API**: <http://localhost:8000>
    - **API Documentation**: <http://localhost:8000/docs>
@@ -179,6 +185,15 @@ make k8s-logs      # Show Kubernetes pod logs
    kubectl get all -n modular-chatbot
    kubectl logs -f deployment/backend-deployment -n modular-chatbot
    ```
+
+4. **Port Forwarding**:
+
+    ```bash
+    # It might be necessary to run the port forwarding scripts to test locally
+    cd k8s
+    ./port-forward.sh  # Linux/macOS
+    ./port-forward.ps1 # Windows
+    ```
 
 ## Google Cloud Run Deployment
 
@@ -557,16 +572,11 @@ curl http://localhost:8000/logs/stats?component=chat
 ### Essential Test Suite
 
 ```bash
-# Run all essential tests
-cd backend && python run_tests.py
+# Run the containers
+make dev
 
-# Run specific test categories
-python run_tests.py router_agent  # RouterAgent decision tests
-python run_tests.py math_agent    # MathAgent expression tests  
-python run_tests.py end_to_end    # E2E /chat API tests
-
-# Run with pytest directly
-cd backend && python -m pytest tests/ -v
+# Run the tests
+make test
 ```
 
 ### Test Coverage
