@@ -4,7 +4,7 @@ A modern, production-ready chatbot system with intelligent agent routing, compre
 
 ## How to Run the System Locally (Docker + docker-compose)
 
-### Prerequisites
+### Local Development Prerequisites
 
 - Docker Engine 20.10+
 - Docker Compose 2.0+
@@ -180,6 +180,70 @@ make k8s-logs      # Show Kubernetes pod logs
    kubectl logs -f deployment/backend-deployment -n modular-chatbot
    ```
 
+## Google Cloud Run Deployment
+
+The application has been successfully deployed to Google Cloud Run with the following details:
+
+### Production Deployment
+
+- **Public URL**: [https://modular-chatbot-frontend-625904623277.us-central1.run.app/](https://modular-chatbot-frontend-625904623277.us-central1.run.app/)
+- **Branch**: All deployment scripts and changes are available on the `production` branch
+- **Status**: Live and operational
+
+### Deployment Scripts
+
+Cloud Run deployment scripts are located in the project root:
+
+- **deploy-cloudrun.ps1** - PowerShell script for Windows deployment
+- **deploy-cloudrun.sh** - Bash script for Linux/macOS deployment
+- **undeploy-cloudrun.ps1** - PowerShell script for cleanup
+- **undeploy-cloudrun.sh** - Bash script for cleanup
+
+### Make Commands
+
+Convenient make targets for Cloud Run operations:
+
+```bash
+# Deploy to Google Cloud Run
+make cloudrun-deploy
+
+# Remove Cloud Run deployment
+make cloudrun-undeploy
+
+# Check Cloud Run service status
+make cloudrun-status
+
+# Show Cloud Run service logs
+make cloudrun-logs
+```
+
+### Cloud Run Prerequisites
+
+1. **Google Cloud CLI**: Install and authenticate with `gcloud auth login`
+2. **Project Setup**: Ensure your Google Cloud project has billing enabled
+3. **Required APIs**: The deployment script automatically enables:
+   - Cloud Run API
+   - Cloud Build API  
+   - Artifact Registry API
+   - Secret Manager API
+
+### Deployment Architecture
+
+- **Frontend**: Deployed as separate Cloud Run service with NGINX
+- **Backend**: Deployed as separate Cloud Run service with FastAPI
+- **Services**: Communicate via internal Cloud Run service discovery
+- **Secrets**: Managed via Google Cloud Secret Manager
+- **Scaling**: Automatic scaling based on request load
+
+### Environment Configuration
+
+The Cloud Run deployment automatically configures:
+
+- **Frontend**: REACT_APP_API_URL set to communicate with backend service
+- **Backend**: Google credentials and API keys from Secret Manager
+- **CORS**: Properly configured for cross-service communication
+- **Resource Limits**: Appropriate CPU and memory allocation
+
 ## Architecture Description
 
 ### System Overview
@@ -273,7 +337,7 @@ The system uses Google Gemini as the primary AI provider:
 
    **Mathematical queries**:
 
-   ```
+   ```text
    What is 65 × 3.11?
    Calculate (42 * 2) / 6
    How much is 70 + 12?
@@ -281,7 +345,7 @@ The system uses Google Gemini as the primary AI provider:
 
    **Knowledge queries**:
 
-   ```
+   ```text
    What are the card machine fees?
    How does InfinitePay work?
    Tell me about payment processing
