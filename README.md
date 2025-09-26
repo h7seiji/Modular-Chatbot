@@ -180,6 +180,110 @@ make k8s-logs      # Show Kubernetes pod logs
    kubectl logs -f deployment/backend-deployment -n modular-chatbot
    ```
 
+## How to Deploy to Cloud Run
+
+### Prerequisites
+
+- Google Cloud account with billing enabled
+- Google Cloud CLI installed and authenticated
+- Docker installed locally
+- Project ID for your Google Cloud project
+
+### Quick Deployment
+
+1. **Set up Google Cloud project**:
+
+   ```bash
+   # Set your project ID
+   gcloud config set project YOUR_PROJECT_ID
+   
+   # Enable required APIs
+   gcloud services enable run.googleapis.com
+   gcloud services enable artifactregistry.googleapis.com
+   gcloud services enable cloudbuild.googleapis.com
+   ```
+
+2. **Configure environment variables**:
+
+   ```bash
+   # Edit deployment scripts with your project ID
+   # For Windows PowerShell:
+   # Edit deploy-cloudrun.ps1 and set $ProjectId = "YOUR_PROJECT_ID"
+   
+   # For Linux/macOS:
+   # Edit deploy-cloudrun.sh and set PROJECT_ID="YOUR_PROJECT_ID"
+   ```
+
+3. **Deploy to Cloud Run**:
+
+   ```bash
+   # Windows PowerShell
+   ./deploy-cloudrun.ps1
+   
+   # Linux/macOS
+   ./deploy-cloudrun.sh
+   ```
+
+   **Note**: The deployment scripts automatically:
+   - Build Docker images for frontend and backend
+   - Push images to Google Artifact Registry
+   - Deploy frontend and backend as separate Cloud Run services
+   - Configure environment variables and secrets
+   - Set up proper CORS configuration
+   - Handle Google Cloud credentials for Vertex AI
+
+4. **Access the deployed application**:
+
+   After deployment completes, the scripts will output the URLs:
+   - **Frontend URL**: https://modular-chatbot-frontend-xxxxxx.run.app
+   - **Backend URL**: https://modular-chatbot-backend-xxxxxx.run.app
+
+### Deployment Architecture
+
+The Cloud Run deployment uses a **separate services** architecture:
+
+- **Frontend Service**: React application served by nginx
+- **Backend Service**: FastAPI application with agents
+- **Communication**: Frontend makes direct API calls to backend URL
+- **Authentication**: Google Cloud credentials passed via environment variables
+
+### Environment Variables
+
+The deployment automatically configures:
+
+- **Frontend**:
+  - `REACT_APP_API_URL`: Hardcoded backend URL for direct communication
+  - `BACKEND_HOST`: Set to backend service name for service discovery
+
+- **Backend**:
+  - `GOOGLE_APPLICATION_CREDENTIALS_CONTENT`: Base64-encoded service account credentials
+  - `GEMINI_API_KEY`: Gemini API key for AI services
+  - `REDIS_URL`: Redis connection string (if using external Redis)
+
+### Troubleshooting Cloud Run Deployment
+
+1. **Check deployment status**:
+
+   ```bash
+   gcloud run services list
+   gcloud run services describe modular-chatbot-frontend
+   gcloud run services describe modular-chatbot-backend
+   ```
+
+2. **View logs**:
+
+   ```bash
+   gcloud logging read "resource.type=cloud_run_revision"
+   gcloud run logs follow modular-chatbot-frontend
+   gcloud run logs follow modular-chatbot-backend
+   ```
+
+3. **Common issues**:
+   - **Container startup failures**: Check Dockerfile and port configurations
+   - **Authentication errors**: Verify Google Cloud credentials and API keys
+   - **CORS errors**: Ensure backend allows frontend URL in CORS origins
+   - **Service discovery**: Frontend uses hardcoded backend URL in Cloud Run
+
 ## Architecture Description
 
 ### System Overview
