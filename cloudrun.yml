@@ -1,0 +1,102 @@
+# Cloud Run service configurations
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: modular-chatbot-backend
+  annotations:
+    run.googleapis.com/ingress: "all"
+    run.googleapis.com/ingress-status: "all"
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/maxScale: "10"
+        autoscaling.knative.dev/minScale: "1"
+        run.googleapis.com/cpu-throttling: "false"
+        run.googleapis.com/memory: "512Mi"
+        run.googleapis.com/cpu: "1000m"
+    spec:
+      containerConcurrency: 80
+      timeoutSeconds: 300
+      containers:
+        - name: backend
+          image: us-central1-docker.pkg.dev/PROJECT_ID/modular-chatbot/backend:latest
+          ports:
+            - name: http1
+              containerPort: 8000
+          env:
+            - name: ENVIRONMENT
+              value: "production"
+            - name: LOG_LEVEL
+              value: "INFO"
+            - name: REDIS_URL
+              value: "redis://your-redis-host:6379/0"
+            - name: GEMINI_API_KEY
+              value: "your-gemini-api-key"
+          resources:
+            limits:
+              cpu: "1000m"
+              memory: "512Mi"
+          startupProbe:
+            timeoutSeconds: 240
+            periodSeconds: 240
+            failureThreshold: 1
+            httpGet:
+              path: /health
+              port: 8000
+          livenessProbe:
+            timeoutSeconds: 30
+            periodSeconds: 30
+            failureThreshold: 3
+            httpGet:
+              path: /health
+              port: 8000
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: modular-chatbot-frontend
+  annotations:
+    run.googleapis.com/ingress: "all"
+    run.googleapis.com/ingress-status: "all"
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/maxScale: "10"
+        autoscaling.knative.dev/minScale: "1"
+        run.googleapis.com/cpu-throttling: "false"
+        run.googleapis.com/memory: "256Mi"
+        run.googleapis.com/cpu: "500m"
+    spec:
+      containerConcurrency: 80
+      timeoutSeconds: 300
+      containers:
+        - name: frontend
+          image: us-central1-docker.pkg.dev/PROJECT_ID/modular-chatbot/frontend:latest
+          ports:
+            - name: http1
+              containerPort: 3000
+          env:
+            - name: REACT_APP_ENVIRONMENT
+              value: "production"
+            - name: REACT_APP_API_URL
+              value: "https://modular-chatbot-backend-uc.a.run.app"
+          resources:
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+          startupProbe:
+            timeoutSeconds: 240
+            periodSeconds: 240
+            failureThreshold: 1
+            httpGet:
+              path: /health
+              port: 3000
+          livenessProbe:
+            timeoutSeconds: 30
+            periodSeconds: 30
+            failureThreshold: 3
+            httpGet:
+              path: /health
+              port: 3000

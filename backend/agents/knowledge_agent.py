@@ -7,6 +7,7 @@ from langchain_community.vectorstores import FAISS
 from langchain_google_vertexai import ChatVertexAI, VertexAIEmbeddings
 
 from agents.base import SpecializedAgent, math_score
+from app.utils.google_credentials import setup_google_credentials
 from models.core import AgentResponse, ConversationContext
 
 
@@ -20,6 +21,12 @@ class KnowledgeAgent(SpecializedAgent):
             "account", "transaction", "billing", "setup", "configure",
             "problem", "issue", "error", "troubleshoot", "guide", "tutorial"
         ])
+
+        # Set up Google Cloud credentials for Cloud Run
+        setup_google_credentials()
+
+        # VertexAI will automatically extract project ID from credentials
+        # No need to manually call vertexai.init() when using GOOGLE_APPLICATION_CREDENTIALS
 
         # 1. Load embeddings and FAISS
         embeddings = VertexAIEmbeddings(model_name="text-embedding-004", location="us-central1")

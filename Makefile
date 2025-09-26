@@ -1,6 +1,6 @@
 # Makefile for Modular Chatbot Docker operations
 
-.PHONY: help build up down logs clean dev prod test health deploy deploy-no-pf undeploy pf k8s-status k8s-logs
+.PHONY: help build up down logs clean dev prod test health deploy deploy-no-pf undeploy pf k8s-status k8s-logs cloudrun-deploy cloudrun-undeploy cloudrun-logs cloudrun-status
 
 # Detect operating system
 ifeq ($(OS),Windows_NT)
@@ -50,6 +50,12 @@ help:
 	@echo "  pf        - Start port forwarding only"
 	@echo "  k8s-status- Check Kubernetes deployment status"
 	@echo "  k8s-logs  - Show Kubernetes pod logs"
+	@echo ""
+	@echo "Cloud Run commands:"
+	@echo "  cloudrun-deploy - Deploy to Google Cloud Run"
+	@echo "  cloudrun-undeploy - Remove Cloud Run deployment"
+	@echo "  cloudrun-status - Check Cloud Run service status"
+	@echo "  cloudrun-logs - Show Cloud Run service logs"
 
 # Build all images
 build:
@@ -151,3 +157,31 @@ ifeq ($(SHELL_CMD),powershell)
 else
 	cd k8s && $(SHELL_CMD) -c "kubectl get pods -n modular-chatbot -o name | xargs -I {} kubectl logs -f {} -n modular-chatbot"
 endif
+
+# Deploy to Google Cloud Run
+cloudrun-deploy:
+	@echo "Deploying to Google Cloud Run..."
+	$(SHELL_CMD) $(SHELL_FLAG) deploy-cloudrun.$(SCRIPT_EXT)
+
+# Remove Cloud Run deployment
+cloudrun-undeploy:
+	@echo "Removing Cloud Run deployment..."
+	$(SHELL_CMD) $(SHELL_FLAG) undeploy-cloudrun.$(SCRIPT_EXT)
+
+# Check Cloud Run service status
+cloudrun-status:
+	@echo "Checking Cloud Run service status..."
+	ifeq ($(SHELL_CMD),powershell)
+		$(SHELL_CMD) -Command "gcloud run services list --project=$$(gcloud config get-value project)"
+	else
+		$(SHELL_CMD) -c "gcloud run services list --project=$$(gcloud config get-value project)"
+	endif
+
+# Show Cloud Run service logs
+cloudrun-logs:
+	@echo "Showing Cloud Run service logs..."
+	ifeq ($(SHELL_CMD),powershell)
+		$(SHELL_CMD) -Command "gcloud logging tail 'resource.type=cloud_run_revision' --project=$$(gcloud config get-value project)"
+	else
+		$(SHELL_CMD) -c "gcloud logging tail 'resource.type=cloud_run_revision' --project=$$(gcloud config get-value project)"
+	endif

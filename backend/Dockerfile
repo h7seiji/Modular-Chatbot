@@ -27,7 +27,8 @@ RUN mkdir -p /home/appuser/.cache/uv && \
     chown -R appuser:appuser /home/appuser && \
     chown -R appuser:appuser /app
 
-# Google credentials setup
+# Google credentials setup - for local development
+# In Cloud Run, this will be provided as environment variable
 COPY google-credentials.json /home/google-credentials.json
 ENV GOOGLE_APPLICATION_CREDENTIALS=/home/google-credentials.json
 
@@ -82,8 +83,15 @@ COPY tests/ ./tests/
 COPY *.py ./
 COPY pyproject.toml ./
 
-# Copy credentials file into production container
+# Copy credentials file into production container (for local development)
+# In Cloud Run, this will be provided as GOOGLE_APPLICATION_CREDENTIALS_CONTENT env var
 COPY google-credentials.json /home/google-credentials.json
+
+# Create secrets directory for Cloud Run (optional)
+RUN mkdir -p /secrets
+
+# Set default credentials path for local development
+# In Cloud Run, this will be overridden by the google_credentials utility
 ENV GOOGLE_APPLICATION_CREDENTIALS=/home/google-credentials.json
 
 # Copy FAISS index from builder stage
@@ -98,10 +106,10 @@ USER appuser
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD curl -f http://localhost:${PORT:-8080}/health || exit 1
 
 # Expose port
-EXPOSE 8000
+EXPOSE ${PORT:-8080}
 
 # Run the application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD sh -c "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080}"

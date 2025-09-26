@@ -1,0 +1,85 @@
+# Cloud Build configuration for deploying Modular Chatbot to Cloud Run
+steps:
+  # Build the backend Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/modular-chatbot/backend:$SHORT_SHA', '-f', 'backend/Dockerfile', '.']
+    id: 'BuildBackend'
+  
+  # Build the frontend Docker image  
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/modular-chatbot/frontend:$SHORT_SHA', '-f', 'frontend/Dockerfile', '.']
+    id: 'BuildFrontend'
+  
+  # Push the backend image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/modular-chatbot/backend:$SHORT_SHA']
+    id: 'PushBackend'
+    waitFor: ['BuildBackend']
+  
+  # Push the frontend image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/modular-chatbot/frontend:$SHORT_SHA']
+    id: 'PushFrontend'
+    waitFor: ['BuildFrontend']
+  
+  # Deploy backend to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'modular-chatbot-backend'
+      - '--image'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/modular-chatbot/backend:$SHORT_SHA'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--set-env-vars'
+      - 'ENVIRONMENT=production'
+      - '--set-env-vars'
+      - 'REDIS_URL=${_REDIS_URL}'
+      - '--set-env-vars'
+      - 'GEMINI_API_KEY=${_GEMINI_API_KEY}'
+      - '--set-env-vars'
+      - 'LOG_LEVEL=INFO'
+      - '--set-secrets'
+      - 'GOOGLE_APPLICATION_CREDENTIALS=google-credentials:latest'
+    id: 'DeployBackend'
+    waitFor: ['PushBackend']
+  
+  # Deploy frontend to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'modular-chatbot-frontend'
+      - '--image'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/modular-chatbot/frontend:$SHORT_SHA'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--set-env-vars'
+      - 'REACT_APP_API_URL=${_BACKEND_URL}'
+      - '--set-env-vars'
+      - 'REACT_APP_ENVIRONMENT=production'
+    id: 'DeployFrontend'
+    waitFor: ['PushFrontend']
+
+# Store images in Artifact Registry
+images:
+  - 'us-central1-docker.pkg.dev/$PROJECT_ID/modular-chatbot/backend:$SHORT_SHA'
+  - 'us-central1-docker.pkg.dev/$PROJECT_ID/modular-chatbot/frontend:$SHORT_SHA'
+
+# Substitutions
+substitutions:
+  _REDIS_URL: 'redis://your-redis-host:6379/0'
+  _GEMINI_API_KEY: 'your-gemini-api-key'
+  _BACKEND_URL: 'https://modular-chatbot-backend-uc.a.run.app'
+
+# Timeout
+timeout: '1800s'

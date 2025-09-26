@@ -165,6 +165,17 @@ async def lifespan(app: FastAPI):
         redis_client = None
         redis_logger = None
 
+    # Set up Google Cloud credentials for Cloud Run
+    try:
+        from app.utils.google_credentials import setup_google_credentials
+        credentials_path = setup_google_credentials()
+        if credentials_path:
+            logger.info(f"Google Cloud credentials set up successfully: {credentials_path}")
+        else:
+            logger.warning("Google Cloud credentials not available - some features may not work")
+    except Exception as e:
+        logger.error(f"Failed to set up Google Cloud credentials: {e}")
+
     # Initialize router agent and register agents
     router_agent = RouterAgent()
 
@@ -211,7 +222,12 @@ app.add_middleware(RequestLoggingMiddleware)
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001", "http://frontend:3000"],  # React frontend
+    allow_origins=[
+        "http://localhost:3000", 
+        "http://localhost:3001", 
+        "http://frontend:3000",
+        "https://modular-chatbot-frontend-625904623277.us-central1.run.app"  # Cloud Run frontend
+    ],  # React frontend
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],
